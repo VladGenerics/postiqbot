@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     oauth_redirect_uri: str = "http://localhost:8080/oauth/callback"
 
+    tiktok_client_key: str = ""
+    tiktok_client_secret: str = ""
+    tiktok_redirect_uri: str = "http://localhost:8080/tiktok/callback"
+
     fernet_key: str
 
     web_host: str = "0.0.0.0"

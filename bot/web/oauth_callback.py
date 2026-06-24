@@ -16,6 +16,7 @@ from bot.services.crypto import decrypt, encrypt
 from bot.services.oauth_state import decode_state
 from bot.services.youtube_api import get_my_channel
 from bot.services.youtube_oauth import exchange_code
+from bot.web.pages import add_pages
 
 logger = logging.getLogger("postiqbot.oauth")
 
@@ -122,4 +123,5 @@ def build_web_app(bot: Bot) -> web.Application:
     app["bot"] = bot
     app.router.add_get("/oauth/callback", oauth_callback)
     app.router.add_get("/healthz", lambda r: web.Response(text="ok"))
+    add_pages(app)
     return app
