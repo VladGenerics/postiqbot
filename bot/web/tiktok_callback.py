@@ -69,9 +69,13 @@ async def tiktok_callback(request: web.Request) -> web.Response:
     try:
         tokens = await exchange_code(code)
         refresh_token = tokens.get("refresh_token")
-        if not refresh_token:
-            raise ValueError("TikTok не вернул refresh_token")
-        open_id, name = await get_user_info(tokens["access_token"])
+        open_id = tokens.get("open_id")
+        if not refresh_token or not open_id:
+            raise ValueError("TikTok не вернул refresh_token/open_id")
+        try:
+            _, name = await get_user_info(tokens["access_token"])
+        except Exception:  # noqa: BLE001
+            name = "TikTok"
     except Exception as exc:  # noqa: BLE001
         logger.exception("TikTok OAuth failed")
         return _html(f"<h2>❌ Ошибка подключения</h2><p>{exc}</p>")
