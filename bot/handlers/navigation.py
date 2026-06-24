@@ -11,6 +11,7 @@ from bot.handlers.accounts import open_connect_tiktok, open_connect_youtube
 from bot.handlers.connections import open_connections
 from bot.handlers.extras import (
     open_guide,
+    open_profile,
     open_referral,
     open_subscription,
     open_support,
@@ -46,6 +47,12 @@ async def nav_connections(message: Message, state: FSMContext) -> None:
     await open_connections(message, message.from_user.id)
 
 
+@router.message(F.text.in_(labels("profile")))
+async def nav_profile(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await open_profile(message, message.from_user.id)
+
+
 @router.message(F.text.in_(labels("tariff")))
 async def nav_tariff(message: Message, state: FSMContext) -> None:
     await state.clear()
@@ -76,6 +83,12 @@ async def nav_lang(message: Message, state: FSMContext) -> None:
     new = "en" if (await user_lang(message.from_user.id)) == "ru" else "ru"
     await set_user_lang(message.from_user.id, new)
     await message.answer(t("lang_switched", new), reply_markup=main_reply_kb(new))
+
+
+@router.message(Command("profile"))
+async def cmd_profile(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await open_profile(message, message.from_user.id)
 
 
 @router.message(Command("tariffs"))

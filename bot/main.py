@@ -67,6 +67,7 @@ async def main() -> None:
 
     await bot.set_my_commands([
         BotCommand(command="start", description="🏠 Главное меню"),
+        BotCommand(command="profile", description="👤 Профиль"),
         BotCommand(command="tariffs", description="💳 Тарифы"),
         BotCommand(command="connections", description="📋 Мои подключения"),
         BotCommand(command="guide", description="📖 Как пользоваться"),

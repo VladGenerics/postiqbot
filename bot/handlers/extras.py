@@ -20,7 +20,7 @@ from aiogram.types import (
 from sqlalchemy import func, select
 
 from bot.config import get_settings
-from bot.db.models import User
+from bot.db.models import Connection, PublishAccount, User
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.i18n import t, user_lang
@@ -98,6 +98,41 @@ async def open_subscription(message: Message, user_id: int) -> None:
 @router.callback_query(F.data == "subscription")
 async def subscription_menu(callback: CallbackQuery) -> None:
     await open_subscription(callback.message, callback.from_user.id)
+    await callback.answer()
+
+
+async def open_profile(message: Message, user_id: int) -> None:
+    await ensure_user(user_id)
+    settings = get_settings()
+    lang = await user_lang(user_id)
+    async with get_session() as session:
+        user = await session.get(User, user_id)
+        accounts = await session.scalar(
+            select(func.count()).select_from(PublishAccount).where(
+                PublishAccount.user_id == user_id
+            )
+        )
+        connections = await session.scalar(
+            select(func.count()).select_from(Connection).where(
+                Connection.user_id == user_id
+            )
+        )
+        invited = await session.scalar(
+            select(func.count()).select_from(User).where(User.referred_by == user_id)
+        )
+    if user_id in settings.admin_id_set:
+        status = t("status_admin", lang)
+    else:
+        status = status_text(user, lang) if user else "—"
+    await message.answer(
+        t("profile_body", lang, status=status, accounts=accounts or 0,
+          connections=connections or 0, invited=invited or 0)
+    )
+
+
+@router.callback_query(F.data == "profile")
+async def profile_menu(callback: CallbackQuery) -> None:
+    await open_profile(callback.message, callback.from_user.id)
     await callback.answer()
 
 

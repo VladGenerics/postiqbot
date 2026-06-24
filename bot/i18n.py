@@ -16,6 +16,7 @@ LABELS: dict[str, dict[str, str]] = {
     "guide": {"ru": "📖 Как пользоваться", "en": "📖 How to use"},
     "referral": {"ru": "🎁 Пригласить друга", "en": "🎁 Invite a friend"},
     "support": {"ru": "✍️ Поддержка", "en": "✍️ Support"},
+    "profile": {"ru": "👤 Профиль", "en": "👤 Profile"},
     "lang": {"ru": "🌐 Switch to English", "en": "🌐 На русский"},
 }
 
@@ -55,6 +56,22 @@ T: dict[str, dict[str, str]] = {
         "en": "💳 <b>Plans</b>\n\n{status}\n\nPayment via Telegram Stars. Pick a plan below 👇",
     },
     "status_admin": {"ru": "♾ Безлимитный доступ (админ)", "en": "♾ Unlimited access (admin)"},
+    "profile_body": {
+        "ru": (
+            "👤 <b>Профиль</b>\n\n{status}\n\n"
+            "🔗 Подключено аккаунтов: <b>{accounts}</b>\n"
+            "📋 Активных связок: <b>{connections}</b>\n"
+            "🎁 Приглашено друзей: <b>{invited}</b>\n\n"
+            "Продлить или сменить тариф — «💳 Тарифы»."
+        ),
+        "en": (
+            "👤 <b>Profile</b>\n\n{status}\n\n"
+            "🔗 Connected accounts: <b>{accounts}</b>\n"
+            "📋 Active connections: <b>{connections}</b>\n"
+            "🎁 Friends invited: <b>{invited}</b>\n\n"
+            "Renew or change your plan — «💳 Plans»."
+        ),
+    },
     "support_prompt": {
         "ru": "✍️ Напиши своё сообщение/вопрос одним сообщением — я передам в поддержку.",
         "en": "✍️ Send your message/question in one message — I'll forward it to support.",
