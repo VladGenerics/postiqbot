@@ -70,7 +70,16 @@ async def privacy(_: web.Request) -> web.Response:
     )
 
 
+_TIKTOK_VERIFY_FILE = "tiktoknvAYdgOvyj93lrBtQ6mglSDKv23rOAXe.txt"
+_TIKTOK_VERIFY_BODY = "tiktok-developers-site-verification=nvAYdgOvyj93lrBtQ6mglSDKv23rOAXe"
+
+
+async def tiktok_verify(_: web.Request) -> web.Response:
+    return web.Response(text=_TIKTOK_VERIFY_BODY, content_type="text/plain")
+
+
 def add_pages(app: web.Application) -> None:
     app.router.add_get("/", landing)
     app.router.add_get("/terms", terms)
     app.router.add_get("/privacy", privacy)
+    app.router.add_get(f"/{_TIKTOK_VERIFY_FILE}", tiktok_verify)
