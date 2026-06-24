@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+*.egg-info/
+.downloads/
+downloads/
+*.log
+.DS_Store
+
+force_test.py
+pg_diag.txt
+pg_setup.txt
+
+.claude/

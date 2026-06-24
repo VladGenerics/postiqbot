@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.git/
+.env
+.venv/
+venv/
+.downloads/
+downloads/
+*.log
+.DS_Store
