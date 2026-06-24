@@ -54,8 +54,21 @@ def _extract_channel_id_sync(url: str) -> str | None:
     return None
 
 
-async def resolve_source_channel(query: str) -> tuple[str, str] | None:
-    """Вернуть (channel_id, channel_title) или None, если канал не найден."""
+def detect_platform(query: str) -> str:
+    """Определить платформу источника по вводу. По умолчанию youtube."""
+    q = query.lower()
+    if "tiktok.com" in q:
+        return "tiktok"
+    return "youtube"
+
+
+async def resolve_source_channel(query: str) -> tuple[str, str, str] | None:
+    """Вернуть (platform, channel_id, channel_title) или None, если не найдено."""
+    if detect_platform(query) == "tiktok":
+        from bot.services.tiktok_source import resolve_tiktok
+
+        return await resolve_tiktok(query)
+
     url = _normalize_to_url(query)
     if url is None:
         return None
@@ -65,4 +78,4 @@ async def resolve_source_channel(query: str) -> tuple[str, str] | None:
     feed = await fetch_feed(channel_id)
     if feed is None:
         return None
-    return channel_id, feed.channel_title
+    return ("youtube", channel_id, feed.channel_title)

@@ -9,9 +9,17 @@ from sqlalchemy.dialects.postgresql import insert
 
 from bot.db.models import Connection, Job, SourceChannel
 from bot.db.session import get_session
-from bot.services.rss import FeedEntry, fetch_feed
+from bot.services.rss import Feed, FeedEntry, fetch_feed
+from bot.services.tiktok_source import fetch_recent_tiktok
 
 logger = logging.getLogger("postiqbot.monitor")
+
+
+async def _fetch_for(source: SourceChannel) -> Feed | None:
+    """Последние видео источника — по платформе (YouTube RSS / TikTok yt-dlp)."""
+    if source.platform == "tiktok":
+        return await fetch_recent_tiktok(source.channel_id)
+    return await fetch_feed(source.channel_id)
 
 
 def _new_entries(entries: list[FeedEntry], last_seen: str | None) -> list[FeedEntry]:
@@ -80,7 +88,7 @@ async def poll_sources() -> int:
     """Опросить все активные источники. Возвращает число созданных job'ов."""
     created = 0
     for source in await _active_sources():
-        feed = await fetch_feed(source.channel_id)
+        feed = await _fetch_for(source)
         if feed is None or not feed.entries:
             await _update_seen(source.id, source.last_seen_video_id or "")
             continue

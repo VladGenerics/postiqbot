@@ -12,6 +12,7 @@ from bot.config import get_settings
 from bot.db.models import Connection, Job, SourceChannel
 from bot.db.session import get_session
 from bot.services.rss import fetch_feed
+from bot.services.tiktok_source import fetch_recent_tiktok
 from bot.services.downloader import process_pending
 from bot.services.publisher import process_scheduled
 
@@ -22,7 +23,12 @@ async def main():
     async with get_session() as s:
         row = (
             await s.execute(
-                select(Connection.id, SourceChannel.channel_id, SourceChannel.channel_title)
+                select(
+                    Connection.id,
+                    SourceChannel.platform,
+                    SourceChannel.channel_id,
+                    SourceChannel.channel_title,
+                )
                 .join(SourceChannel, SourceChannel.id == Connection.source_channel_id)
                 .where(Connection.is_active.is_(True))
                 .order_by(Connection.id.desc())
@@ -30,10 +36,13 @@ async def main():
         ).first()
     if row is None:
         print("Нет активных связок. Подключи канал и источник в боте."); return
-    conn_id, src_channel_id, src_title = row
-    print(f"Источник: {src_title} ({src_channel_id}), connection={conn_id}")
+    conn_id, platform, src_channel_id, src_title = row
+    print(f"Источник [{platform}]: {src_title} ({src_channel_id}), connection={conn_id}")
 
-    feed = await fetch_feed(src_channel_id)
+    if platform == "tiktok":
+        feed = await fetch_recent_tiktok(src_channel_id)
+    else:
+        feed = await fetch_feed(src_channel_id)
     if not feed or not feed.entries:
         print("RSS пуст — нечего публиковать."); return
     e = feed.entries[0]

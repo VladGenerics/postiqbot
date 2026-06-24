@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""
     tiktok_redirect_uri: str = "http://localhost:8080/tiktok/callback"
+    tiktok_cookies_file: str = ""
 
     fernet_key: str
 

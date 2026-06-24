@@ -34,12 +34,12 @@ async def _user_accounts(telegram_id: int) -> list[PublishAccount]:
         )
 
 
-async def _get_or_create_source(channel_id: str, title: str) -> int:
+async def _get_or_create_source(platform: str, channel_id: str, title: str) -> int:
     """Вернуть id source_channel (создать при отсутствии)."""
     async with get_session() as session:
         stmt = (
             insert(SourceChannel)
-            .values(platform="youtube", channel_id=channel_id, channel_title=title)
+            .values(platform=platform, channel_id=channel_id, channel_title=title)
             .on_conflict_do_update(
                 constraint="uq_source_channel", set_={"channel_title": title}
             )
@@ -88,11 +88,12 @@ async def got_link(message: Message, state: FSMContext) -> None:
     resolved = await resolve_source_channel(message.text or "")
     if resolved is None:
         await message.answer(
-            "❌ Не получилось распознать канал. Проверь ссылку и пришли ещё раз."
+            "❌ Не получилось распознать канал. Проверь ссылку и пришли ещё раз.\n"
+            "Для TikTok пришли полную ссылку на профиль (https://www.tiktok.com/@...)."
         )
         return
-    channel_id, title = resolved
-    source_id = await _get_or_create_source(channel_id, title)
+    platform, channel_id, title = resolved
+    source_id = await _get_or_create_source(platform, channel_id, title)
 
     accounts = await _user_accounts(message.from_user.id)
     if len(accounts) == 1:
