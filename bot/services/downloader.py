@@ -24,7 +24,7 @@ logger = logging.getLogger("postiqbot.downloader")
 
 def _ydl_opts(dest_dir: str) -> dict:
     return {
-        "format": "bv*[height<=1080]+ba/b[height<=1080]/b",
+        "format": "bv*[height<=1920][width<=1920]+ba/b[height<=1920][width<=1920]/b",
         "merge_output_format": "mp4",
         "outtmpl": os.path.join(dest_dir, "%(id)s.%(ext)s"),
         "quiet": True,

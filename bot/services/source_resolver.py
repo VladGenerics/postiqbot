@@ -1,17 +1,17 @@
 """Резолв исходного YouTube-канала из ссылки/@handle/ID в (channel_id, title)."""
 from __future__ import annotations
 
+import asyncio
 import re
 
-import httpx
+import yt_dlp
 
 from bot.services.rss import fetch_feed
 
-_CHANNEL_ID_RE = re.compile(r"(UC[\w-]{22})")
-_CANONICAL_RE = re.compile(r'<link rel="canonical" href="https://www\.youtube\.com/channel/(UC[\w-]{22})"')
-_META_CHANNEL_RE = re.compile(r'"(?:externalId|channelId)":"(UC[\w-]{22})"')
-
-_UA = {"User-Agent": "Mozilla/5.0 (compatible; PostiqBot/1.0)"}
+_TAB_SUFFIX_RE = re.compile(
+    r"/(shorts|videos|streams|featured|community|playlists|about|podcasts|releases)/?$",
+    re.IGNORECASE,
+)
 
 
 def _normalize_to_url(query: str) -> str | None:
@@ -19,6 +19,7 @@ def _normalize_to_url(query: str) -> str | None:
     q = query.strip()
     if not q:
         return None
+    q = _TAB_SUFFIX_RE.sub("", q)
     if re.fullmatch(r"UC[\w-]{22}", q):
         return f"https://www.youtube.com/channel/{q}"
     if q.startswith("@"):
@@ -30,19 +31,26 @@ def _normalize_to_url(query: str) -> str | None:
     return f"https://www.youtube.com/@{q}"
 
 
-async def _extract_channel_id(url: str) -> str | None:
+def _extract_channel_id_sync(url: str) -> str | None:
+    """Достать channel_id (UC...) через yt-dlp. Синхронно → звать в to_thread."""
     m = re.search(r"/channel/(UC[\w-]{22})", url)
     if m:
         return m.group(1)
-    async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers=_UA) as client:
-        resp = await client.get(url)
-    if resp.status_code != 200:
+    opts = {
+        "quiet": True,
+        "skip_download": True,
+        "extract_flat": True,
+        "playlist_items": "1",
+        "noprogress": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except Exception:
         return None
-    html = resp.text
-    for pattern in (_CANONICAL_RE, _META_CHANNEL_RE, _CHANNEL_ID_RE):
-        m = pattern.search(html)
-        if m:
-            return m.group(1)
+    channel_id = info.get("channel_id")
+    if channel_id and channel_id.startswith("UC"):
+        return channel_id
     return None
 
 
@@ -51,7 +59,7 @@ async def resolve_source_channel(query: str) -> tuple[str, str] | None:
     url = _normalize_to_url(query)
     if url is None:
         return None
-    channel_id = await _extract_channel_id(url)
+    channel_id = await asyncio.to_thread(_extract_channel_id_sync, url)
     if channel_id is None:
         return None
     feed = await fetch_feed(channel_id)
