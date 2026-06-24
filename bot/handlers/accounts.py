@@ -2,7 +2,12 @@
 from __future__ import annotations
 
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
 from sqlalchemy import func, select
 
 from bot.config import get_settings
@@ -31,86 +36,74 @@ async def _account_limit_reached(telegram_id: int) -> int | None:
     return None if allowed else limit
 
 
-@router.callback_query(F.data == "connect_youtube")
-async def connect_youtube(callback: CallbackQuery) -> None:
-    settings = get_settings()
-    telegram_id = callback.from_user.id
-    await ensure_user(telegram_id)
+_LIMIT_MSG = (
+    "⚠️ На твоём тарифе можно подключить до <b>{limit}</b> аккаунтов. "
+    "Удали лишний или оформи тариф побольше («💳 Тарифы»)."
+)
 
+
+async def open_connect_youtube(message: Message, telegram_id: int) -> None:
+    settings = get_settings()
+    await ensure_user(telegram_id)
     limit = await _account_limit_reached(telegram_id)
     if limit is not None:
-        await callback.message.answer(
-            f"⚠️ На твоём тарифе можно подключить до <b>{limit}</b> аккаунтов. "
-            "Удали лишний или оформи тариф побольше («💳 Подписка»)."
-        )
-        await callback.answer()
+        await message.answer(_LIMIT_MSG.format(limit=limit))
         return
-
     async with get_session() as session:
         await ensure_shared_project(session)
         await session.flush()
         project = await pick_project(session, owner_telegram_id=telegram_id)
         if project is None:
-            await callback.message.answer(
+            await message.answer(
                 "⚠️ Нет доступных Google-проектов в пуле. "
                 "Админу нужно добавить проект командой /addproject."
             )
-            await callback.answer()
             return
-
         client_id = project.client_id
         client_secret = decrypt(project.client_secret_enc)
         state = encode_state(telegram_id, project.id)
 
-    auth_url = build_auth_url(
-        client_id, client_secret, settings.oauth_redirect_uri, state
-    )
-
+    auth_url = build_auth_url(client_id, client_secret, settings.oauth_redirect_uri, state)
     kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔓 Войти через Google", url=auth_url)]
-        ]
+        inline_keyboard=[[InlineKeyboardButton(text="🔓 Войти через Google", url=auth_url)]]
     )
-    await callback.message.answer(
+    await message.answer(
         "Нажми кнопку ниже и разреши доступ к своему YouTube-каналу.\n"
         "После подтверждения я пришлю сообщение, что канал подключён.\n\n"
         "<i>Ссылка действует 10 минут.</i>",
         reply_markup=kb,
     )
-    await callback.answer()
 
 
-@router.callback_query(F.data == "connect_tiktok")
-async def connect_tiktok(callback: CallbackQuery) -> None:
+async def open_connect_tiktok(message: Message, telegram_id: int) -> None:
     settings = get_settings()
     if not settings.tiktok_client_key:
-        await callback.message.answer("⚠️ TikTok пока не настроен на сервере.")
-        await callback.answer()
+        await message.answer("⚠️ TikTok пока не настроен на сервере.")
         return
-    telegram_id = callback.from_user.id
     await ensure_user(telegram_id)
-
     limit = await _account_limit_reached(telegram_id)
     if limit is not None:
-        await callback.message.answer(
-            f"⚠️ На твоём тарифе можно подключить до <b>{limit}</b> аккаунтов. "
-            "Удали лишний или оформи тариф побольше («💳 Подписка»)."
-        )
-        await callback.answer()
+        await message.answer(_LIMIT_MSG.format(limit=limit))
         return
-
-    state = encode_simple_state(telegram_id)
-    auth_url = tiktok_auth_url(state)
-
+    auth_url = tiktok_auth_url(encode_simple_state(telegram_id))
     kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔓 Войти через TikTok", url=auth_url)]
-        ]
+        inline_keyboard=[[InlineKeyboardButton(text="🔓 Войти через TikTok", url=auth_url)]]
     )
-    await callback.message.answer(
+    await message.answer(
         "Нажми кнопку ниже и разреши доступ к своему TikTok-аккаунту.\n"
         "После подтверждения я пришлю сообщение, что аккаунт подключён.\n\n"
         "<i>Ссылка действует 10 минут.</i>",
         reply_markup=kb,
     )
+
+
+@router.callback_query(F.data == "connect_youtube")
+async def connect_youtube(callback: CallbackQuery) -> None:
+    await open_connect_youtube(callback.message, callback.from_user.id)
+    await callback.answer()
+
+
+@router.callback_query(F.data == "connect_tiktok")
+async def connect_tiktok(callback: CallbackQuery) -> None:
+    await open_connect_tiktok(callback.message, callback.from_user.id)
     await callback.answer()

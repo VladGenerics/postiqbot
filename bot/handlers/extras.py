@@ -54,23 +54,26 @@ _GUIDE = (
 )
 
 
+async def open_guide(message: Message) -> None:
+    await message.answer(_GUIDE)
+
+
 @router.callback_query(F.data == "guide")
 async def show_guide(callback: CallbackQuery) -> None:
-    await callback.message.answer(_GUIDE)
+    await open_guide(callback.message)
     await callback.answer()
 
 
-@router.callback_query(F.data == "subscription")
-async def subscription_menu(callback: CallbackQuery) -> None:
-    await ensure_user(callback.from_user.id)
+async def open_subscription(message: Message, user_id: int) -> None:
+    await ensure_user(user_id)
     settings = get_settings()
-    if callback.from_user.id in settings.admin_id_set:
+    if user_id in settings.admin_id_set:
         status = "♾ Безлимитный доступ (админ)"
     else:
         async with get_session() as session:
-            user = await session.get(User, callback.from_user.id)
+            user = await session.get(User, user_id)
         status = status_text(user) if user else "Доступ не найден."
-    lines = [f"💳 <b>Подписка</b>\n\n{status}\n"]
+    lines = [f"💳 <b>Тарифы</b>\n\n{status}\n"]
     rows = []
     for days, t in settings.sub_tiers.items():
         lines.append(
@@ -82,9 +85,14 @@ async def subscription_menu(callback: CallbackQuery) -> None:
             text=f"⭐ {t['stars']} — {days} дн.", callback_data=f"buy_sub:{days}"
         )])
     lines.append("\n\nОплата через Telegram Stars. Выбери тариф:")
-    await callback.message.answer(
+    await message.answer(
         "".join(lines), reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
     )
+
+
+@router.callback_query(F.data == "subscription")
+async def subscription_menu(callback: CallbackQuery) -> None:
+    await open_subscription(callback.message, callback.from_user.id)
     await callback.answer()
 
 
@@ -149,25 +157,21 @@ async def _reward_referrer(bot: Bot, payer_id: int) -> None:
         pass
 
 
-@router.callback_query(F.data == "referral")
-async def referral_menu(callback: CallbackQuery, bot: Bot) -> None:
-    await ensure_user(callback.from_user.id)
+async def open_referral(message: Message, bot: Bot, user_id: int) -> None:
+    await ensure_user(user_id)
     settings = get_settings()
     me = await bot.get_me()
-    link = f"https://t.me/{me.username}?start=ref_{callback.from_user.id}"
+    link = f"https://t.me/{me.username}?start=ref_{user_id}"
     async with get_session() as session:
         invited = await session.scalar(
-            select(func.count()).select_from(User).where(
-                User.referred_by == callback.from_user.id
-            )
+            select(func.count()).select_from(User).where(User.referred_by == user_id)
         )
         paid = await session.scalar(
             select(func.count()).select_from(User).where(
-                User.referred_by == callback.from_user.id,
-                User.referral_rewarded.is_(True),
+                User.referred_by == user_id, User.referral_rewarded.is_(True)
             )
         )
-    await callback.message.answer(
+    await message.answer(
         "🎁 <b>Реферальная программа</b>\n\n"
         f"Приглашай друзей! Когда приглашённый оформит подписку — тебе "
         f"<b>+{settings.referral_bonus_days} дней</b> доступа.\n\n"
@@ -175,6 +179,11 @@ async def referral_menu(callback: CallbackQuery, bot: Bot) -> None:
         f"👥 Приглашено: <b>{invited or 0}</b>\n"
         f"💳 Оплатили (бонус начислен): <b>{paid or 0}</b>"
     )
+
+
+@router.callback_query(F.data == "referral")
+async def referral_menu(callback: CallbackQuery, bot: Bot) -> None:
+    await open_referral(callback.message, bot, callback.from_user.id)
     await callback.answer()
 
 
@@ -182,12 +191,16 @@ class SupportFlow(StatesGroup):
     waiting_message = State()
 
 
-@router.callback_query(F.data == "support")
-async def support_start(callback: CallbackQuery, state: FSMContext) -> None:
+async def open_support(message: Message, state: FSMContext) -> None:
     await state.set_state(SupportFlow.waiting_message)
-    await callback.message.answer(
+    await message.answer(
         "✍️ Напиши своё сообщение/вопрос одним сообщением — я передам в поддержку."
     )
+
+
+@router.callback_query(F.data == "support")
+async def support_start(callback: CallbackQuery, state: FSMContext) -> None:
+    await open_support(callback.message, state)
     await callback.answer()
 
 

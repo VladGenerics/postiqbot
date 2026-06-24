@@ -66,20 +66,24 @@ async def _create_connection(
         return (await session.execute(stmt)).scalar_one_or_none() is not None
 
 
-@router.callback_query(F.data == "add_source")
-async def add_source(callback: CallbackQuery, state: FSMContext) -> None:
-    accounts = await _user_accounts(callback.from_user.id)
+async def open_add_source(message: Message, user_id: int, state: FSMContext) -> None:
+    accounts = await _user_accounts(user_id)
     if not accounts:
-        await callback.message.answer(
-            "Сначала подключи свой YouTube-канал (кнопка «Подключить YouTube»)."
+        await message.answer(
+            "Сначала подключи свой канал («🔗 Подключить YouTube» или «🎵 Подключить TikTok»)."
         )
-        await callback.answer()
         return
     await state.set_state(SourceFlow.waiting_link)
-    await callback.message.answer(
-        "Пришли ссылку на канал-источник, его <b>@handle</b> или channel_id.\n"
-        "Например: <code>https://youtube.com/@MrBeast</code> или <code>@MrBeast</code>"
+    await message.answer(
+        "Пришли ссылку на канал-источник:\n"
+        "• YouTube — <code>@handle</code> или ссылку (<code>https://youtube.com/@MrBeast</code>)\n"
+        "• TikTok — ссылку на профиль (<code>https://www.tiktok.com/@user</code>)"
     )
+
+
+@router.callback_query(F.data == "add_source")
+async def add_source(callback: CallbackQuery, state: FSMContext) -> None:
+    await open_add_source(callback.message, callback.from_user.id, state)
     await callback.answer()
 
 

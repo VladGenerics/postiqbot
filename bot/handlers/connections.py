@@ -153,19 +153,22 @@ def _card_markup(conn: Connection) -> InlineKeyboardMarkup:
     )
 
 
-@router.callback_query(F.data == "my_connections")
-async def show_connections(callback: CallbackQuery) -> None:
-    connections = await _load_connections(callback.from_user.id)
+async def open_connections(message: Message, user_id: int) -> None:
+    connections = await _load_connections(user_id)
     if not connections:
-        await callback.message.answer(
+        await message.answer(
             "У тебя пока нет связок. Подключи канал и добавь источник 👇"
         )
-        await callback.answer()
         return
-    await callback.message.answer(
+    await message.answer(
         "📋 <b>Твои связки</b> (источник → твой канал).\nВыбери, чтобы настроить:",
         reply_markup=_list_markup(connections),
     )
+
+
+@router.callback_query(F.data == "my_connections")
+async def show_connections(callback: CallbackQuery) -> None:
+    await open_connections(callback.message, callback.from_user.id)
     await callback.answer()
 
 

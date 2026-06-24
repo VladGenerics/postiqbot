@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from bot.config import get_settings
 from bot.db.models import User
 from bot.db.session import get_session
-from bot.keyboards.menus import main_menu
+from bot.keyboards.menus import main_reply_kb
 
 router = Router(name="start")
 
@@ -56,7 +56,8 @@ async def cmd_start(message: Message, command: CommandObject) -> None:
     await message.answer(
         "👋 Привет! Я <b>PostiqBot</b>.\n\n"
         "Я слежу за каналами-источниками и автоматически перезаливаю новые "
-        "видео на твой YouTube по расписанию.\n\n"
-        "Начни с подключения своего YouTube-канала 👇",
-        reply_markup=main_menu(),
+        "видео (включая Shorts) на твои YouTube/TikTok по расписанию.\n\n"
+        "Пользуйся кнопками меню внизу 👇\n"
+        "Начни с подключения своего канала, потом добавь источник.",
+        reply_markup=main_reply_kb(),
     )

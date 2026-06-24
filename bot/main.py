@@ -10,7 +10,15 @@ from aiogram.enums import ParseMode
 from aiohttp import web
 
 from bot.config import get_settings
-from bot.handlers import accounts, admin, connections, extras, sources, start
+from bot.handlers import (
+    accounts,
+    admin,
+    connections,
+    extras,
+    navigation,
+    sources,
+    start,
+)
 from bot.scheduler import setup_scheduler
 from bot.web.oauth_callback import build_web_app
 
@@ -24,6 +32,7 @@ logger = logging.getLogger("postiqbot")
 def build_dispatcher() -> Dispatcher:
     dp = Dispatcher()
     dp.include_router(start.router)
+    dp.include_router(navigation.router)
     dp.include_router(accounts.router)
     dp.include_router(sources.router)
     dp.include_router(connections.router)
