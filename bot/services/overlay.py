@@ -96,7 +96,9 @@ def make_preview(
     positions = _screen_positions(sx, sy, sw, sh, margin)
     x_expr, y_expr = positions.get(position, positions["bottom_right"])
     filtergraph = (
-        f"[1:v]scale={overlay_w}:-1[ovr];[0:v][ovr]overlay={x_expr}:{y_expr}[v]"
+        f"color=c=black:s=852x1846[bg];[bg][0:v]overlay=0:0[frame];"
+        f"[1:v]scale={overlay_w}:-1[ovr];"
+        f"[frame][ovr]overlay={x_expr}:{y_expr},scale=426:-1[v]"
     )
     cmd = [
         "ffmpeg", "-y",
