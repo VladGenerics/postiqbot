@@ -90,7 +90,7 @@ def make_preview(
     cmd = [
         "ffmpeg", "-y",
         "-i", _PHONE_FRAME,
-        "-f", "lavfi", "-i", f"testsrc2=s={sw}x{sh}:d=1",
+        "-f", "lavfi", "-i", f"color=c=0x2b2c31:s={sw}x{sh}:d=1",
         "-i", overlay_path,
         "-filter_complex", filtergraph,
         "-map", "[v]", "-frames:v", "1", "-q:v", "3",
