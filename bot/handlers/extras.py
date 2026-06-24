@@ -63,9 +63,12 @@ async def show_guide(callback: CallbackQuery) -> None:
 async def subscription_menu(callback: CallbackQuery) -> None:
     await ensure_user(callback.from_user.id)
     settings = get_settings()
-    async with get_session() as session:
-        user = await session.get(User, callback.from_user.id)
-    status = status_text(user) if user else "Доступ не найден."
+    if callback.from_user.id in settings.admin_id_set:
+        status = "♾ Безлимитный доступ (админ)"
+    else:
+        async with get_session() as session:
+            user = await session.get(User, callback.from_user.id)
+        status = status_text(user) if user else "Доступ не найден."
     kb = InlineKeyboardMarkup(
         inline_keyboard=[[
             InlineKeyboardButton(
