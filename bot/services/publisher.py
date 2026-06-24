@@ -25,6 +25,7 @@ from bot.db.session import get_session
 from bot.services.crypto import decrypt
 from bot.services import tiktok_api, tiktok_oauth
 from bot.services.overlay import apply_overlay
+from bot.services.subscription import inc_videos_used, video_limited_users
 from bot.services.youtube_api import upload_video
 from bot.services.youtube_oauth import credentials_from_refresh_token
 
@@ -85,10 +86,16 @@ async def _claim_due(limit: int) -> list[_Task]:
             )
         )
 
+        limited = await video_limited_users(
+            [j.connection.user_id for j in candidates]
+        )
+
         for job in candidates:
             if len(tasks) >= limit:
                 break
             conn = job.connection
+            if conn.user_id in limited:
+                continue
             acc = conn.publish_account
             common = dict(
                 job_id=job.id,
@@ -199,6 +206,7 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
             publish_path, extra_files = await _prepare_path(bot, task)
             remote_id = await _publish(task, publish_path)
             await _finalize(task.job_id, remote_id=remote_id, error=None)
+            await inc_videos_used(task.user_id)
             published += 1
             logger.info("Опубликовано job=%d (%s) → %s", task.job_id, task.platform, remote_id)
             await _notify(bot, task.user_id, _success_msg(task, remote_id))

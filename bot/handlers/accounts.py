@@ -3,17 +3,32 @@ from __future__ import annotations
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from sqlalchemy import func, select
 
 from bot.config import get_settings
+from bot.db.models import PublishAccount
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.services.crypto import decrypt
 from bot.services.oauth_state import encode_simple_state, encode_state
 from bot.services.projects import ensure_shared_project, pick_project
+from bot.services.subscription import can_add_account
 from bot.services.tiktok_oauth import build_auth_url as tiktok_auth_url
 from bot.services.youtube_oauth import build_auth_url
 
 router = Router(name="accounts")
+
+
+async def _account_limit_reached(telegram_id: int) -> int | None:
+    """Если лимит аккаунтов достигнут — вернуть лимит, иначе None."""
+    async with get_session() as session:
+        count = await session.scalar(
+            select(func.count()).select_from(PublishAccount).where(
+                PublishAccount.user_id == telegram_id
+            )
+        )
+    allowed, limit = await can_add_account(telegram_id, count or 0)
+    return None if allowed else limit
 
 
 @router.callback_query(F.data == "connect_youtube")
@@ -21,6 +36,15 @@ async def connect_youtube(callback: CallbackQuery) -> None:
     settings = get_settings()
     telegram_id = callback.from_user.id
     await ensure_user(telegram_id)
+
+    limit = await _account_limit_reached(telegram_id)
+    if limit is not None:
+        await callback.message.answer(
+            f"⚠️ На твоём тарифе можно подключить до <b>{limit}</b> аккаунтов. "
+            "Удали лишний или оформи тариф побольше («💳 Подписка»)."
+        )
+        await callback.answer()
+        return
 
     async with get_session() as session:
         await ensure_shared_project(session)
@@ -65,6 +89,15 @@ async def connect_tiktok(callback: CallbackQuery) -> None:
         return
     telegram_id = callback.from_user.id
     await ensure_user(telegram_id)
+
+    limit = await _account_limit_reached(telegram_id)
+    if limit is not None:
+        await callback.message.answer(
+            f"⚠️ На твоём тарифе можно подключить до <b>{limit}</b> аккаунтов. "
+            "Удали лишний или оформи тариф побольше («💳 Подписка»)."
+        )
+        await callback.answer()
+        return
 
     state = encode_simple_state(telegram_id)
     auth_url = tiktok_auth_url(state)

@@ -41,15 +41,29 @@ class Settings(BaseSettings):
     admin_ids: str = ""
 
     trial_days: int = 2
+    trial_accounts: int = 1
+    trial_videos: int = 5
+
     sub_stars_7: int = 99
+    sub_accounts_7: int = 2
+    sub_videos_7: int = 40
     sub_stars_14: int = 179
+    sub_accounts_14: int = 3
+    sub_videos_14: int = 100
     sub_stars_30: int = 299
+    sub_accounts_30: int = 5
+    sub_videos_30: int = 300
+
     referral_bonus_days: int = 7
 
     @property
-    def sub_tiers(self) -> dict[int, int]:
-        """{дни: цена в Stars}."""
-        return {7: self.sub_stars_7, 14: self.sub_stars_14, 30: self.sub_stars_30}
+    def sub_tiers(self) -> dict[int, dict[str, int]]:
+        """{дни: {stars, accounts, videos}}."""
+        return {
+            7: {"stars": self.sub_stars_7, "accounts": self.sub_accounts_7, "videos": self.sub_videos_7},
+            14: {"stars": self.sub_stars_14, "accounts": self.sub_accounts_14, "videos": self.sub_videos_14},
+            30: {"stars": self.sub_stars_30, "accounts": self.sub_accounts_30, "videos": self.sub_videos_30},
+        }
 
     @property
     def admin_id_set(self) -> set[int]:

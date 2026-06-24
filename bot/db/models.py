@@ -43,6 +43,9 @@ class User(Base):
     )
     referred_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     referral_rewarded: Mapped[bool] = mapped_column(Boolean, default=False)
+    tier_accounts: Mapped[int] = mapped_column(Integer, default=1)
+    tier_videos: Mapped[int] = mapped_column(Integer, default=5)
+    videos_used: Mapped[int] = mapped_column(Integer, default=0)
 
     publish_accounts: Mapped[list["PublishAccount"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"

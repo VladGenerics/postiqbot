@@ -18,9 +18,8 @@ router = Router(name="start")
 
 async def ensure_user(telegram_id: int, referred_by: int | None = None) -> None:
     """Зарегистрировать пользователя с триалом, если его ещё нет (идемпотентно)."""
-    trial_until = datetime.now(timezone.utc) + timedelta(
-        days=get_settings().trial_days
-    )
+    settings = get_settings()
+    trial_until = datetime.now(timezone.utc) + timedelta(days=settings.trial_days)
     async with get_session() as session:
         stmt = (
             insert(User)
@@ -28,6 +27,8 @@ async def ensure_user(telegram_id: int, referred_by: int | None = None) -> None:
                 telegram_id=telegram_id,
                 trial_until=trial_until,
                 referred_by=referred_by,
+                tier_accounts=settings.trial_accounts,
+                tier_videos=settings.trial_videos,
             )
             .on_conflict_do_nothing(index_elements=["telegram_id"])
         )

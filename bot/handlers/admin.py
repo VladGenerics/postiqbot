@@ -53,7 +53,10 @@ async def cmd_grant(message: Message, command: CommandObject) -> None:
         await message.answer("Использование: <code>/grant &lt;user_id&gt; &lt;дней&gt;</code>")
         return
     user_id, days = int(parts[0]), int(parts[1])
-    until = await grant_subscription(user_id, days)
+    top = get_settings().sub_tiers.get(30, {"accounts": 5, "videos": 300})
+    until = await grant_subscription(
+        user_id, days, accounts=top["accounts"], videos=top["videos"]
+    )
     await message.answer(
         f"✅ Пользователю <code>{user_id}</code> доступ продлён до <b>{until:%d.%m.%Y}</b>."
     )

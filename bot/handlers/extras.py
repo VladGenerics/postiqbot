@@ -70,17 +70,20 @@ async def subscription_menu(callback: CallbackQuery) -> None:
         async with get_session() as session:
             user = await session.get(User, callback.from_user.id)
         status = status_text(user) if user else "Доступ не найден."
-    rows = [
-        [InlineKeyboardButton(
-            text=f"⭐ {stars} — {days} дней",
-            callback_data=f"buy_sub:{days}",
-        )]
-        for days, stars in settings.sub_tiers.items()
-    ]
+    lines = [f"💳 <b>Подписка</b>\n\n{status}\n"]
+    rows = []
+    for days, t in settings.sub_tiers.items():
+        lines.append(
+            f"\n<b>{days} дней — {t['stars']} ⭐</b>\n"
+            f"  • до {t['accounts']} аккаунтов\n"
+            f"  • до {t['videos']} видео за период"
+        )
+        rows.append([InlineKeyboardButton(
+            text=f"⭐ {t['stars']} — {days} дн.", callback_data=f"buy_sub:{days}"
+        )])
+    lines.append("\n\nОплата через Telegram Stars. Выбери тариф:")
     await callback.message.answer(
-        f"💳 <b>Подписка</b>\n\n{status}\n\n"
-        "Оплата через Telegram Stars. Выбери срок:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        "".join(lines), reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
     )
     await callback.answer()
 
@@ -116,7 +119,10 @@ async def on_paid(message: Message, bot: Bot) -> None:
         days = int(payload.split(":", 1)[1])
     except (IndexError, ValueError):
         days = 30
-    until = await grant_subscription(message.from_user.id, days)
+    tier = get_settings().sub_tiers.get(days, {"accounts": 5, "videos": 300})
+    until = await grant_subscription(
+        message.from_user.id, days, accounts=tier["accounts"], videos=tier["videos"]
+    )
     await message.answer(
         f"✅ Оплата прошла! Подписка активна до <b>{until:%d.%m.%Y}</b>. Спасибо! 🙌"
     )
