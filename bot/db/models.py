@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     DateTime,
@@ -140,6 +141,12 @@ class Connection(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     privacy: Mapped[str] = mapped_column(String(16), default="private")
+
+    schedule_mode: Mapped[str] = mapped_column(String(16), default="immediate")
+    interval_minutes: Mapped[int] = mapped_column(Integer, default=0)
+    post_times: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    tz: Mapped[str] = mapped_column(String(48), default="UTC")
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

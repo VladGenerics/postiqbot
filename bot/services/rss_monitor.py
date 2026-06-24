@@ -4,12 +4,13 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
-from bot.db.models import Connection, Job, SourceChannel
+from bot.db.models import JOB_FAILED, Connection, Job, SourceChannel
 from bot.db.session import get_session
 from bot.services.rss import Feed, FeedEntry, fetch_feed
+from bot.services.scheduling import compute_scheduled_at
 from bot.services.tiktok_source import fetch_recent_tiktok
 
 logger = logging.getLogger("postiqbot.monitor")
@@ -45,11 +46,11 @@ async def _active_sources() -> list[SourceChannel]:
         )
 
 
-async def _connections_for_source(source_id: int) -> list[int]:
+async def _active_connections_for_source(source_id: int) -> list[Connection]:
     async with get_session() as session:
         return list(
             await session.scalars(
-                select(Connection.id).where(
+                select(Connection).where(
                     Connection.source_channel_id == source_id,
                     Connection.is_active.is_(True),
                 )
@@ -57,23 +58,51 @@ async def _connections_for_source(source_id: int) -> list[int]:
         )
 
 
-async def _create_jobs(connection_ids: list[int], entry: FeedEntry) -> None:
-    now = datetime.now(timezone.utc)
+async def _last_scheduled(connection_id: int) -> datetime | None:
     async with get_session() as session:
-        for cid in connection_ids:
-            stmt = (
-                insert(Job)
-                .values(
-                    connection_id=cid,
-                    source_video_id=entry.video_id,
-                    video_url=entry.url,
-                    title=entry.title,
-                    status="pending",
-                    scheduled_at=now,
-                )
-                .on_conflict_do_nothing(constraint="uq_job_source_video")
+        return await session.scalar(
+            select(func.max(Job.scheduled_at)).where(
+                Job.connection_id == connection_id, Job.status != JOB_FAILED
             )
-            await session.execute(stmt)
+        )
+
+
+async def _create_jobs_for_videos(
+    connections: list[Connection], videos: list[FeedEntry]
+) -> int:
+    """Создать job'ы на новые видео для всех связок."""
+    now = datetime.now(timezone.utc)
+    running: dict[int, datetime | None] = {
+        c.id: await _last_scheduled(c.id) for c in connections
+    }
+    created = 0
+    async with get_session() as session:
+        for entry in videos:
+            for c in connections:
+                sched = compute_scheduled_at(
+                    mode=c.schedule_mode,
+                    interval_minutes=c.interval_minutes,
+                    post_times=c.post_times,
+                    tz_name=c.tz,
+                    last_scheduled=running[c.id],
+                    now=now,
+                )
+                stmt = (
+                    insert(Job)
+                    .values(
+                        connection_id=c.id,
+                        source_video_id=entry.video_id,
+                        video_url=entry.url,
+                        title=entry.title,
+                        status="pending",
+                        scheduled_at=sched,
+                    )
+                    .on_conflict_do_nothing(constraint="uq_job_source_video")
+                )
+                await session.execute(stmt)
+                running[c.id] = sched
+                created += 1
+    return created
 
 
 async def _update_seen(source_id: int, last_seen: str) -> None:
@@ -100,13 +129,11 @@ async def poll_sources() -> int:
 
         fresh = _new_entries(feed.entries, source.last_seen_video_id)
         if fresh:
-            connection_ids = await _connections_for_source(source.id)
-            for entry in fresh:
-                await _create_jobs(connection_ids, entry)
-                created += len(connection_ids)
+            conns = await _active_connections_for_source(source.id)
+            created += await _create_jobs_for_videos(conns, fresh)
             logger.info(
                 "Источник %s: %d новых видео × %d связок",
-                source.channel_title, len(fresh), len(connection_ids),
+                source.channel_title, len(fresh), len(conns),
             )
         await _update_seen(source.id, feed.entries[0].video_id)
     return created
