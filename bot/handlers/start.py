@@ -1,11 +1,14 @@
 """Хендлер /start — регистрация пользователя и главное меню."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from sqlalchemy.dialects.postgresql import insert
 
+from bot.config import get_settings
 from bot.db.models import User
 from bot.db.session import get_session
 from bot.keyboards.menus import main_menu
@@ -14,11 +17,14 @@ router = Router(name="start")
 
 
 async def ensure_user(telegram_id: int) -> None:
-    """Зарегистрировать пользователя, если его ещё нет (идемпотентно)."""
+    """Зарегистрировать пользователя с триалом, если его ещё нет (идемпотентно)."""
+    trial_until = datetime.now(timezone.utc) + timedelta(
+        days=get_settings().trial_days
+    )
     async with get_session() as session:
         stmt = (
             insert(User)
-            .values(telegram_id=telegram_id)
+            .values(telegram_id=telegram_id, trial_until=trial_until)
             .on_conflict_do_nothing(index_elements=["telegram_id"])
         )
         await session.execute(stmt)

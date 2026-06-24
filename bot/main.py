@@ -10,7 +10,7 @@ from aiogram.enums import ParseMode
 from aiohttp import web
 
 from bot.config import get_settings
-from bot.handlers import accounts, admin, connections, sources, start
+from bot.handlers import accounts, admin, connections, extras, sources, start
 from bot.scheduler import setup_scheduler
 from bot.web.oauth_callback import build_web_app
 
@@ -27,6 +27,7 @@ def build_dispatcher() -> Dispatcher:
     dp.include_router(accounts.router)
     dp.include_router(sources.router)
     dp.include_router(connections.router)
+    dp.include_router(extras.router)
     dp.include_router(admin.router)
     return dp
 

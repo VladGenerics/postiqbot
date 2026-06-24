@@ -40,6 +40,10 @@ class Settings(BaseSettings):
 
     admin_ids: str = ""
 
+    trial_days: int = 2
+    subscription_days: int = 30
+    subscription_stars: int = 250
+
     @property
     def admin_id_set(self) -> set[int]:
         return {

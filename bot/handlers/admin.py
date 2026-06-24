@@ -10,6 +10,7 @@ from bot.config import get_settings
 from bot.db.models import OAuthProject
 from bot.db.session import get_session
 from bot.services.projects import add_project
+from bot.services.subscription import grant_subscription
 
 router = Router(name="admin")
 
@@ -40,6 +41,22 @@ async def cmd_addproject(message: Message, command: CommandObject) -> None:
             return
         await add_project(session, name, client_id, client_secret)
     await message.answer(f"✅ Проект <b>{name}</b> добавлен в пул.")
+
+
+@router.message(Command("grant"))
+async def cmd_grant(message: Message, command: CommandObject) -> None:
+    """/grant <user_id> <дней> — вручную продлить подписку пользователю."""
+    if not _is_admin(message.from_user.id):
+        return
+    parts = (command.args or "").split()
+    if len(parts) != 2 or not all(p.lstrip("-").isdigit() for p in parts):
+        await message.answer("Использование: <code>/grant &lt;user_id&gt; &lt;дней&gt;</code>")
+        return
+    user_id, days = int(parts[0]), int(parts[1])
+    until = await grant_subscription(user_id, days)
+    await message.answer(
+        f"✅ Пользователю <code>{user_id}</code> доступ продлён до <b>{until:%d.%m.%Y}</b>."
+    )
 
 
 @router.message(Command("projects"))

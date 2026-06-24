@@ -11,6 +11,7 @@ from bot.db.models import JOB_FAILED, Connection, Job, SourceChannel
 from bot.db.session import get_session
 from bot.services.rss import Feed, FeedEntry, fetch_feed
 from bot.services.scheduling import compute_scheduled_at
+from bot.services.subscription import active_user_ids
 from bot.services.tiktok_source import fetch_recent_tiktok
 
 logger = logging.getLogger("postiqbot.monitor")
@@ -130,6 +131,8 @@ async def poll_sources() -> int:
         fresh = _new_entries(feed.entries, source.last_seen_video_id)
         if fresh:
             conns = await _active_connections_for_source(source.id)
+            allowed = await active_user_ids([c.user_id for c in conns])
+            conns = [c for c in conns if c.user_id in allowed]
             created += await _create_jobs_for_videos(conns, fresh)
             logger.info(
                 "Источник %s: %d новых видео × %d связок",

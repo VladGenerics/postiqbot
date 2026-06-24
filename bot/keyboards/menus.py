@@ -28,4 +28,11 @@ def main_menu() -> InlineKeyboardMarkup:
             text="📋 Мои подключения", callback_data="my_connections"
         )
     )
+    kb.row(
+        InlineKeyboardButton(text="📖 Как пользоваться", callback_data="guide"),
+        InlineKeyboardButton(text="💳 Подписка", callback_data="subscription"),
+    )
+    kb.row(
+        InlineKeyboardButton(text="✍️ Поддержка", callback_data="support")
+    )
     return kb.as_markup()
