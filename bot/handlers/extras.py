@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 
 from aiogram import Bot, F, Router
@@ -9,6 +10,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
+    FSInputFile,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     LabeledPrice,
@@ -64,6 +66,9 @@ async def show_guide(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
+_TARIFFS_IMG = os.path.join(os.path.dirname(__file__), "..", "assets", "tariffs.png")
+
+
 async def open_subscription(message: Message, user_id: int) -> None:
     await ensure_user(user_id)
     settings = get_settings()
@@ -73,20 +78,20 @@ async def open_subscription(message: Message, user_id: int) -> None:
         async with get_session() as session:
             user = await session.get(User, user_id)
         status = status_text(user) if user else "Доступ не найден."
-    lines = [f"💳 <b>Тарифы</b>\n\n{status}\n"]
-    rows = []
-    for days, t in settings.sub_tiers.items():
-        lines.append(
-            f"\n<b>{days} дней — {t['stars']} ⭐</b>\n"
-            f"  • до {t['accounts']} аккаунтов\n"
-            f"  • до {t['videos']} видео за период"
-        )
-        rows.append([InlineKeyboardButton(
+    rows = [
+        [InlineKeyboardButton(
             text=f"⭐ {t['stars']} — {days} дн.", callback_data=f"buy_sub:{days}"
-        )])
-    lines.append("\n\nОплата через Telegram Stars. Выбери тариф:")
-    await message.answer(
-        "".join(lines), reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
+        )]
+        for days, t in settings.sub_tiers.items()
+    ]
+    caption = (
+        f"💳 <b>Тарифы</b>\n\n{status}\n\n"
+        "Оплата через Telegram Stars. Выбери тариф ниже 👇"
+    )
+    await message.answer_photo(
+        FSInputFile(_TARIFFS_IMG),
+        caption=caption,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
 
 

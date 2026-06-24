@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     web_host: str = "0.0.0.0"
     web_port: int = 8080
+    public_domain: str = ""
 
     monitor_interval_minutes: int = 10
     publish_interval_minutes: int = 5

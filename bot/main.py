@@ -7,6 +7,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import BotCommand
 from aiohttp import web
 
 from bot.config import get_settings
@@ -63,6 +64,17 @@ async def main() -> None:
     runner = await _start_web(bot)
     scheduler = setup_scheduler(bot)
     scheduler.start()
+
+    await bot.set_my_commands([
+        BotCommand(command="start", description="🏠 Главное меню"),
+        BotCommand(command="tariffs", description="💳 Тарифы"),
+        BotCommand(command="connections", description="📋 Мои подключения"),
+        BotCommand(command="guide", description="📖 Как пользоваться"),
+        BotCommand(command="referral", description="🎁 Пригласить друга"),
+        BotCommand(command="support", description="✍️ Поддержка"),
+        BotCommand(command="policy", description="🔐 Политика конфиденциальности"),
+        BotCommand(command="terms", description="📄 Пользовательское соглашение"),
+    ])
 
     logger.info("PostiqBot запускается (long polling)…")
     try:
