@@ -66,3 +66,32 @@ def apply_overlay(
     ]
     subprocess.run(cmd, capture_output=True, text=True, check=True)
     return out_path
+
+
+def make_preview(
+    overlay_path: str,
+    position: str,
+    scale_pct: int,
+    out_path: str,
+    width: int = 1080,
+    height: int = 1920,
+) -> str:
+    """Сгенерировать JPG-превью: оверлей поверх макета видео (по умолчанию 9:16)."""
+    overlay_w = max(1, int(width * max(1, scale_pct) / 100))
+    margin = max(2, int(width * 0.03))
+    x_expr, y_expr = _POSITIONS.get(position, _POSITIONS["bottom_right"])
+    x_expr = x_expr.format(M=margin)
+    y_expr = y_expr.format(M=margin)
+    filtergraph = (
+        f"[1:v]scale={overlay_w}:-1[ovr];[0:v][ovr]overlay={x_expr}:{y_expr}"
+    )
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", f"testsrc2=s={width}x{height}:d=1",
+        "-i", overlay_path,
+        "-filter_complex", filtergraph,
+        "-frames:v", "1",
+        out_path,
+    ]
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    return out_path

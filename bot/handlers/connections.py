@@ -1,20 +1,27 @@
 """Управление связками клиента: список, пауза/возобновление, приватность, удаление."""
 from __future__ import annotations
 
-from aiogram import F, Router
+import asyncio
+import os
+
+from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
+    FSInputFile,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    InputMediaPhoto,
     Message,
 )
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
+from bot.config import get_settings
 from bot.db.models import Connection
 from bot.db.session import get_session
+from bot.services.overlay import make_preview
 
 router = Router(name="connections")
 
@@ -162,6 +169,14 @@ async def show_connections(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
+async def _show_card(callback: CallbackQuery, conn: Connection) -> None:
+    """Показать карточку: правим текущее сообщение, а если это фото — шлём новое."""
+    try:
+        await callback.message.edit_text(_card_text(conn), reply_markup=_card_markup(conn))
+    except Exception:  # noqa: BLE001 — сообщение-фото нельзя превратить в текст
+        await callback.message.answer(_card_text(conn), reply_markup=_card_markup(conn))
+
+
 @router.callback_query(F.data.startswith("conn:"))
 async def show_card(callback: CallbackQuery) -> None:
     conn_id = int(callback.data.split(":", 1)[1])
@@ -169,7 +184,7 @@ async def show_card(callback: CallbackQuery) -> None:
     if conn is None:
         await callback.answer("Связка не найдена", show_alert=True)
         return
-    await callback.message.edit_text(_card_text(conn), reply_markup=_card_markup(conn))
+    await _show_card(callback, conn)
     await callback.answer()
 
 
@@ -402,6 +417,31 @@ def _ovl_file_id(message: Message) -> str | None:
     return None
 
 
+async def _build_preview(bot: Bot, conn: Connection) -> tuple[str, list[str]]:
+    """Скачать оверлей и собрать JPG-превью. Вернуть (путь_превью, temp-файлы)."""
+    dl = get_settings().download_dir
+    os.makedirs(dl, exist_ok=True)
+    file = await bot.get_file(conn.overlay_file_id)
+    ext = os.path.splitext(file.file_path or "")[1] or ".bin"
+    src = os.path.join(dl, f"ovlprev_src_{file.file_unique_id}{ext}")
+    await bot.download_file(file.file_path, src)
+    preview = os.path.join(dl, f"ovlprev_{conn.id}.jpg")
+    await asyncio.to_thread(
+        make_preview, src, conn.overlay_position or "bottom_right",
+        conn.overlay_scale, preview,
+    )
+    return preview, [src, preview]
+
+
+def _cleanup(paths: list[str]) -> None:
+    for p in paths:
+        try:
+            if p and os.path.exists(p):
+                os.remove(p)
+        except OSError:
+            pass
+
+
 @router.callback_query(F.data.startswith("conn_ovl:"))
 async def overlay_menu(callback: CallbackQuery, state: FSMContext) -> None:
     conn_id = int(callback.data.split(":", 1)[1])
@@ -410,7 +450,11 @@ async def overlay_menu(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer("Связка не найдена", show_alert=True)
         return
     if conn.overlay_file_id:
-        await callback.message.edit_text(_OVERLAY_TEXT, reply_markup=_overlay_markup(conn))
+        preview, temps = await _build_preview(callback.bot, conn)
+        await callback.message.answer_photo(
+            FSInputFile(preview), caption=_OVERLAY_TEXT, reply_markup=_overlay_markup(conn)
+        )
+        _cleanup(temps)
     else:
         await state.update_data(conn_id=conn_id)
         await state.set_state(OverlayFlow.waiting_image)
@@ -453,10 +497,15 @@ async def overlay_got_image(message: Message, state: FSMContext) -> None:
         if not conn.overlay_position:
             conn.overlay_position = "bottom_right"
         markup = _overlay_markup(conn)
+        conn_copy = conn
     await state.clear()
-    await message.answer(
-        "✅ Картинка сохранена. Настрой позицию и размер:", reply_markup=markup
+    preview, temps = await _build_preview(message.bot, conn_copy)
+    await message.answer_photo(
+        FSInputFile(preview),
+        caption="✅ Картинка сохранена. Вот как ляжет — настрой позицию и размер:",
+        reply_markup=markup,
     )
+    _cleanup(temps)
 
 
 async def _update_overlay(conn_id: int, user_id: int, **fields) -> Connection | None:
@@ -476,6 +525,21 @@ async def _update_overlay(conn_id: int, user_id: int, **fields) -> Connection | 
         return conn
 
 
+async def _refresh_preview(callback: CallbackQuery, conn: Connection) -> None:
+    """Перерисовать превью-фото с новыми позицией/размером."""
+    preview, temps = await _build_preview(callback.bot, conn)
+    try:
+        await callback.message.edit_media(
+            InputMediaPhoto(media=FSInputFile(preview), caption=_OVERLAY_TEXT),
+            reply_markup=_overlay_markup(conn),
+        )
+    except Exception:  # noqa: BLE001 — сообщение не фото / не изменилось
+        await callback.message.answer_photo(
+            FSInputFile(preview), caption=_OVERLAY_TEXT, reply_markup=_overlay_markup(conn)
+        )
+    _cleanup(temps)
+
+
 @router.callback_query(F.data.startswith("ovl_pos:"))
 async def overlay_set_position(callback: CallbackQuery) -> None:
     _, conn_id, pos = callback.data.split(":", 2)
@@ -483,7 +547,7 @@ async def overlay_set_position(callback: CallbackQuery) -> None:
     if conn is None:
         await callback.answer("Не найдено", show_alert=True)
         return
-    await callback.message.edit_text(_OVERLAY_TEXT, reply_markup=_overlay_markup(conn))
+    await _refresh_preview(callback, conn)
     await callback.answer("Позиция обновлена")
 
 
@@ -494,7 +558,7 @@ async def overlay_set_scale(callback: CallbackQuery) -> None:
     if conn is None:
         await callback.answer("Не найдено", show_alert=True)
         return
-    await callback.message.edit_text(_OVERLAY_TEXT, reply_markup=_overlay_markup(conn))
+    await _refresh_preview(callback, conn)
     await callback.answer("Размер обновлён")
 
 
@@ -507,7 +571,7 @@ async def overlay_remove(callback: CallbackQuery) -> None:
     if conn is None:
         await callback.answer("Не найдено", show_alert=True)
         return
-    await callback.message.edit_text(_card_text(conn), reply_markup=_card_markup(conn))
+    await _show_card(callback, conn)
     await callback.answer("Оверлей убран")
 
 
