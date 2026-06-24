@@ -67,18 +67,15 @@ async def _create_connection(
 
 
 async def open_add_source(message: Message, user_id: int, state: FSMContext) -> None:
+    from bot.i18n import t, user_lang
+
+    lang = await user_lang(user_id)
     accounts = await _user_accounts(user_id)
     if not accounts:
-        await message.answer(
-            "Сначала подключи свой канал («🔗 Подключить YouTube» или «🎵 Подключить TikTok»)."
-        )
+        await message.answer(t("source_need_account", lang))
         return
     await state.set_state(SourceFlow.waiting_link)
-    await message.answer(
-        "Пришли ссылку на канал-источник:\n"
-        "• YouTube — <code>@handle</code> или ссылку (<code>https://youtube.com/@MrBeast</code>)\n"
-        "• TikTok — ссылку на профиль (<code>https://www.tiktok.com/@user</code>)"
-    )
+    await message.answer(t("source_prompt", lang))
 
 
 @router.callback_query(F.data == "add_source")

@@ -23,6 +23,7 @@ from bot.config import get_settings
 from bot.db.models import User
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
+from bot.i18n import t, user_lang
 from bot.services.subscription import grant_subscription, status_text
 
 logger = logging.getLogger("postiqbot.extras")
@@ -56,13 +57,14 @@ _GUIDE = (
 )
 
 
-async def open_guide(message: Message) -> None:
-    await message.answer(_GUIDE)
+async def open_guide(message: Message, user_id: int) -> None:
+    lang = await user_lang(user_id)
+    await message.answer(t("guide", lang))
 
 
 @router.callback_query(F.data == "guide")
 async def show_guide(callback: CallbackQuery) -> None:
-    await open_guide(callback.message)
+    await open_guide(callback.message, callback.from_user.id)
     await callback.answer()
 
 
@@ -72,22 +74,20 @@ _TARIFFS_IMG = os.path.join(os.path.dirname(__file__), "..", "assets", "tariffs.
 async def open_subscription(message: Message, user_id: int) -> None:
     await ensure_user(user_id)
     settings = get_settings()
+    lang = await user_lang(user_id)
     if user_id in settings.admin_id_set:
-        status = "♾ Безлимитный доступ (админ)"
+        status = t("status_admin", lang)
     else:
         async with get_session() as session:
             user = await session.get(User, user_id)
-        status = status_text(user) if user else "Доступ не найден."
+        status = status_text(user, lang) if user else "—"
     rows = [
         [InlineKeyboardButton(
-            text=f"⭐ {t['stars']} — {days} дн.", callback_data=f"buy_sub:{days}"
+            text=f"⭐ {tier['stars']} — {days} дн.", callback_data=f"buy_sub:{days}"
         )]
-        for days, t in settings.sub_tiers.items()
+        for days, tier in settings.sub_tiers.items()
     ]
-    caption = (
-        f"💳 <b>Тарифы</b>\n\n{status}\n\n"
-        "Оплата через Telegram Stars. Выбери тариф ниже 👇"
-    )
+    caption = t("tariffs_caption", lang, status=status)
     await message.answer_photo(
         FSInputFile(_TARIFFS_IMG),
         caption=caption,
@@ -165,6 +165,7 @@ async def _reward_referrer(bot: Bot, payer_id: int) -> None:
 async def open_referral(message: Message, bot: Bot, user_id: int) -> None:
     await ensure_user(user_id)
     settings = get_settings()
+    lang = await user_lang(user_id)
     me = await bot.get_me()
     link = f"https://t.me/{me.username}?start=ref_{user_id}"
     async with get_session() as session:
@@ -177,12 +178,8 @@ async def open_referral(message: Message, bot: Bot, user_id: int) -> None:
             )
         )
     await message.answer(
-        "🎁 <b>Реферальная программа</b>\n\n"
-        f"Приглашай друзей! Когда приглашённый оформит подписку — тебе "
-        f"<b>+{settings.referral_bonus_days} дней</b> доступа.\n\n"
-        f"Твоя ссылка:\n{link}\n\n"
-        f"👥 Приглашено: <b>{invited or 0}</b>\n"
-        f"💳 Оплатили (бонус начислен): <b>{paid or 0}</b>"
+        t("referral", lang, bonus=settings.referral_bonus_days, link=link,
+          invited=invited or 0, paid=paid or 0)
     )
 
 
@@ -196,16 +193,15 @@ class SupportFlow(StatesGroup):
     waiting_message = State()
 
 
-async def open_support(message: Message, state: FSMContext) -> None:
+async def open_support(message: Message, state: FSMContext, user_id: int) -> None:
+    lang = await user_lang(user_id)
     await state.set_state(SupportFlow.waiting_message)
-    await message.answer(
-        "✍️ Напиши своё сообщение/вопрос одним сообщением — я передам в поддержку."
-    )
+    await message.answer(t("support_prompt", lang))
 
 
 @router.callback_query(F.data == "support")
 async def support_start(callback: CallbackQuery, state: FSMContext) -> None:
-    await open_support(callback.message, state)
+    await open_support(callback.message, state, callback.from_user.id)
     await callback.answer()
 
 
@@ -226,11 +222,8 @@ async def support_forward(message: Message, state: FSMContext, bot: Bot) -> None
             sent = True
         except Exception:  # noqa: BLE001
             logger.warning("Не смог доставить сообщение поддержки админу %s", admin_id)
-    await message.answer(
-        "✅ Отправлено в поддержку — ответим как сможем."
-        if sent
-        else "⚠️ Поддержка временно недоступна, попробуй позже."
-    )
+    lang = await user_lang(message.from_user.id)
+    await message.answer(t("support_sent" if sent else "support_unavailable", lang))
 
 
 @router.message(F.reply_to_message.text.contains("Поддержка"))

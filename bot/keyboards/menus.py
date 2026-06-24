@@ -1,56 +1,21 @@
-"""Клавиатуры бота: постоянная нижняя (reply) навигация + инлайн-меню."""
+"""Клавиатуры бота: постоянная нижняя (reply) навигация на нужном языке."""
 from __future__ import annotations
 
-from aiogram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardMarkup,
-)
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
-BTN_YOUTUBE = "🔗 Подключить YouTube"
-BTN_TIKTOK = "🎵 Подключить TikTok"
-BTN_SOURCE = "📡 Добавить источник"
-BTN_CONNECTIONS = "📋 Мои подключения"
-BTN_TARIFF = "💳 Тарифы"
-BTN_GUIDE = "📖 Как пользоваться"
-BTN_REFERRAL = "🎁 Пригласить друга"
-BTN_SUPPORT = "✍️ Поддержка"
+from bot.i18n import label
 
 
-def main_reply_kb() -> ReplyKeyboardMarkup:
-    """Постоянная нижняя клавиатура — главное меню."""
+def main_reply_kb(lang: str = "ru") -> ReplyKeyboardMarkup:
+    """Постоянная нижняя клавиатура — главное меню на языке lang."""
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=BTN_YOUTUBE), KeyboardButton(text=BTN_TIKTOK)],
-            [KeyboardButton(text=BTN_SOURCE), KeyboardButton(text=BTN_CONNECTIONS)],
-            [KeyboardButton(text=BTN_TARIFF), KeyboardButton(text=BTN_GUIDE)],
-            [KeyboardButton(text=BTN_REFERRAL), KeyboardButton(text=BTN_SUPPORT)],
+            [KeyboardButton(text=label("youtube", lang)), KeyboardButton(text=label("tiktok", lang))],
+            [KeyboardButton(text=label("source", lang)), KeyboardButton(text=label("connections", lang))],
+            [KeyboardButton(text=label("tariff", lang)), KeyboardButton(text=label("guide", lang))],
+            [KeyboardButton(text=label("referral", lang)), KeyboardButton(text=label("support", lang))],
+            [KeyboardButton(text=label("lang", lang))],
         ],
         resize_keyboard=True,
         is_persistent=True,
-        input_field_placeholder="Выбери действие в меню ниже…",
     )
-
-
-def main_menu() -> InlineKeyboardMarkup:
-    """Инлайн-меню (используется, где нужно прямо в сообщении)."""
-    kb = InlineKeyboardBuilder()
-    kb.row(
-        InlineKeyboardButton(text=BTN_YOUTUBE, callback_data="connect_youtube"),
-        InlineKeyboardButton(text=BTN_TIKTOK, callback_data="connect_tiktok"),
-    )
-    kb.row(
-        InlineKeyboardButton(text=BTN_SOURCE, callback_data="add_source"),
-        InlineKeyboardButton(text=BTN_CONNECTIONS, callback_data="my_connections"),
-    )
-    kb.row(
-        InlineKeyboardButton(text=BTN_TARIFF, callback_data="subscription"),
-        InlineKeyboardButton(text=BTN_GUIDE, callback_data="guide"),
-    )
-    kb.row(
-        InlineKeyboardButton(text=BTN_REFERRAL, callback_data="referral"),
-        InlineKeyboardButton(text=BTN_SUPPORT, callback_data="support"),
-    )
-    return kb.as_markup()

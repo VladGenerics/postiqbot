@@ -112,14 +112,24 @@ async def inc_videos_used(telegram_id: int) -> None:
             user.videos_used += 1
 
 
-def status_text(user: User) -> str:
+def status_text(user: User, lang: str = "ru") -> str:
     until = access_until(user)
     now = _now()
+    videos_left = max(0, user.tier_videos - user.videos_used)
+    if lang == "en":
+        if until is None or until <= now:
+            return "❌ Access inactive. Buy a subscription so the bot can publish."
+        days = (until - now).days
+        src = "subscription" if (user.subscription_until and user.subscription_until > now) else "trial"
+        return (
+            f"✅ Access active ({src}) until <b>{until:%d.%m.%Y}</b> (~{days}d)\n"
+            f"📦 Accounts limit: <b>{user.tier_accounts}</b>\n"
+            f"🎬 Videos left: <b>{videos_left}</b> of {user.tier_videos}"
+        )
     if until is None or until <= now:
         return "❌ Доступ неактивен. Оформи подписку, чтобы бот публиковал видео."
     days = (until - now).days
     src = "подписка" if (user.subscription_until and user.subscription_until > now) else "триал"
-    videos_left = max(0, user.tier_videos - user.videos_used)
     return (
         f"✅ Доступ активен ({src}) до <b>{until:%d.%m.%Y}</b> (~{days} дн.)\n"
         f"📦 Лимит аккаунтов: <b>{user.tier_accounts}</b>\n"

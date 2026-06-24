@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from bot.config import get_settings
 from bot.db.models import User
 from bot.db.session import get_session
+from bot.i18n import t, user_lang
 from bot.keyboards.menus import main_reply_kb
 
 router = Router(name="start")
@@ -53,11 +54,5 @@ async def _parse_referrer(command: CommandObject, self_id: int) -> int | None:
 async def cmd_start(message: Message, command: CommandObject) -> None:
     referred_by = await _parse_referrer(command, message.from_user.id)
     await ensure_user(message.from_user.id, referred_by=referred_by)
-    await message.answer(
-        "👋 Привет! Я <b>PostiqBot</b>.\n\n"
-        "Я слежу за каналами-источниками и автоматически перезаливаю новые "
-        "видео (включая Shorts) на твои YouTube/TikTok по расписанию.\n\n"
-        "Пользуйся кнопками меню внизу 👇\n"
-        "Начни с подключения своего канала, потом добавь источник.",
-        reply_markup=main_reply_kb(),
-    )
+    lang = await user_lang(message.from_user.id)
+    await message.answer(t("welcome", lang), reply_markup=main_reply_kb(lang))

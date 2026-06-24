@@ -14,6 +14,7 @@ from bot.config import get_settings
 from bot.db.models import PublishAccount
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
+from bot.i18n import t, user_lang
 from bot.services.crypto import decrypt
 from bot.services.oauth_state import encode_simple_state, encode_state
 from bot.services.projects import ensure_shared_project, pick_project
@@ -36,18 +37,13 @@ async def _account_limit_reached(telegram_id: int) -> int | None:
     return None if allowed else limit
 
 
-_LIMIT_MSG = (
-    "⚠️ На твоём тарифе можно подключить до <b>{limit}</b> аккаунтов. "
-    "Удали лишний или оформи тариф побольше («💳 Тарифы»)."
-)
-
-
 async def open_connect_youtube(message: Message, telegram_id: int) -> None:
     settings = get_settings()
     await ensure_user(telegram_id)
+    lang = await user_lang(telegram_id)
     limit = await _account_limit_reached(telegram_id)
     if limit is not None:
-        await message.answer(_LIMIT_MSG.format(limit=limit))
+        await message.answer(t("limit_accounts", lang, limit=limit))
         return
     async with get_session() as session:
         await ensure_shared_project(session)
@@ -65,36 +61,27 @@ async def open_connect_youtube(message: Message, telegram_id: int) -> None:
 
     auth_url = build_auth_url(client_id, client_secret, settings.oauth_redirect_uri, state)
     kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="🔓 Войти через Google", url=auth_url)]]
+        inline_keyboard=[[InlineKeyboardButton(text=t("btn_login_google", lang), url=auth_url)]]
     )
-    await message.answer(
-        "Нажми кнопку ниже и разреши доступ к своему YouTube-каналу.\n"
-        "После подтверждения я пришлю сообщение, что канал подключён.\n\n"
-        "<i>Ссылка действует 10 минут.</i>",
-        reply_markup=kb,
-    )
+    await message.answer(t("oauth_youtube", lang), reply_markup=kb)
 
 
 async def open_connect_tiktok(message: Message, telegram_id: int) -> None:
     settings = get_settings()
+    lang = await user_lang(telegram_id)
     if not settings.tiktok_client_key:
         await message.answer("⚠️ TikTok пока не настроен на сервере.")
         return
     await ensure_user(telegram_id)
     limit = await _account_limit_reached(telegram_id)
     if limit is not None:
-        await message.answer(_LIMIT_MSG.format(limit=limit))
+        await message.answer(t("limit_accounts", lang, limit=limit))
         return
     auth_url = tiktok_auth_url(encode_simple_state(telegram_id))
     kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="🔓 Войти через TikTok", url=auth_url)]]
+        inline_keyboard=[[InlineKeyboardButton(text=t("btn_login_tiktok", lang), url=auth_url)]]
     )
-    await message.answer(
-        "Нажми кнопку ниже и разреши доступ к своему TikTok-аккаунту.\n"
-        "После подтверждения я пришлю сообщение, что аккаунт подключён.\n\n"
-        "<i>Ссылка действует 10 минут.</i>",
-        reply_markup=kb,
-    )
+    await message.answer(t("oauth_tiktok", lang), reply_markup=kb)
 
 
 @router.callback_query(F.data == "connect_youtube")

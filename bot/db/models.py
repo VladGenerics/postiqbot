@@ -46,6 +46,7 @@ class User(Base):
     tier_accounts: Mapped[int] = mapped_column(Integer, default=1)
     tier_videos: Mapped[int] = mapped_column(Integer, default=5)
     videos_used: Mapped[int] = mapped_column(Integer, default=0)
+    lang: Mapped[str] = mapped_column(String(2), default="ru")
 
     publish_accounts: Mapped[list["PublishAccount"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
