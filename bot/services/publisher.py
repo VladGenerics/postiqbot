@@ -20,9 +20,11 @@ from bot.db.models import (
     Job,
     PublishAccount,
 )
+from bot.config import get_settings
 from bot.db.session import get_session
 from bot.services.crypto import decrypt
 from bot.services import tiktok_api, tiktok_oauth
+from bot.services.overlay import apply_overlay
 from bot.services.youtube_api import upload_video
 from bot.services.youtube_oauth import credentials_from_refresh_token
 
@@ -40,6 +42,9 @@ class _Task:
     privacy: str = "private"
     client_id: str = ""
     client_secret: str = ""
+    overlay_file_id: str | None = None
+    overlay_position: str | None = None
+    overlay_scale: int = 30
 
 
 def _start_of_day(now: datetime) -> datetime:
@@ -91,6 +96,9 @@ async def _claim_due(limit: int) -> list[_Task]:
                 title=job.title or "video",
                 local_path=job.local_path or "",
                 refresh_token=decrypt(acc.refresh_token_enc),
+                overlay_file_id=conn.overlay_file_id,
+                overlay_position=conn.overlay_position,
+                overlay_scale=conn.overlay_scale,
             )
 
             if acc.platform == "youtube":
@@ -129,22 +137,45 @@ async def _finalize(job_id: int, *, remote_id: str | None, error: str | None) ->
             job.youtube_video_id = remote_id
 
 
-def _yt_upload(task: _Task) -> str:
+def _yt_upload(task: _Task, path: str) -> str:
     creds = credentials_from_refresh_token(
         task.refresh_token, task.client_id, task.client_secret
     )
     return upload_video(
-        creds, task.local_path, task.title, description="", privacy_status=task.privacy
+        creds, path, task.title, description="", privacy_status=task.privacy
     )
 
 
-async def _publish(task: _Task) -> str:
+async def _publish(task: _Task, path: str) -> str:
     if task.platform == "youtube":
-        return await asyncio.to_thread(_yt_upload, task)
+        return await asyncio.to_thread(_yt_upload, task, path)
     if task.platform == "tiktok":
         tokens = await tiktok_oauth.refresh_access_token(task.refresh_token)
-        return await tiktok_api.upload_to_inbox(tokens["access_token"], task.local_path)
+        return await tiktok_api.upload_to_inbox(tokens["access_token"], path)
     raise ValueError(f"Неизвестная платформа: {task.platform}")
+
+
+async def _download_overlay(bot: Bot, file_id: str) -> str:
+    """Скачать оверлей из Telegram во временный файл (расширение из file_path)."""
+    file = await bot.get_file(file_id)
+    ext = os.path.splitext(file.file_path or "")[1] or ".bin"
+    os.makedirs(get_settings().download_dir, exist_ok=True)
+    dest = os.path.join(
+        get_settings().download_dir, f"overlay_{file.file_unique_id}{ext}"
+    )
+    await bot.download_file(file.file_path, dest)
+    return dest
+
+
+async def _prepare_path(bot: Bot, task: _Task) -> tuple[str, list[str]]:
+    """Вернуть (путь для публикации, список временных файлов на удаление)."""
+    if not (task.overlay_file_id and task.overlay_position):
+        return task.local_path, []
+    overlay_tmp = await _download_overlay(bot, task.overlay_file_id)
+    overlaid = await asyncio.to_thread(
+        apply_overlay, task.local_path, overlay_tmp, task.overlay_position, task.overlay_scale
+    )
+    return overlaid, [overlay_tmp, overlaid]
 
 
 def _success_msg(task: _Task, remote_id: str) -> str:
@@ -163,8 +194,10 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
     """Опубликовать до `limit` видео. Возвращает число опубликованных."""
     published = 0
     for task in await _claim_due(limit):
+        extra_files: list[str] = []
         try:
-            remote_id = await _publish(task)
+            publish_path, extra_files = await _prepare_path(bot, task)
+            remote_id = await _publish(task, publish_path)
             await _finalize(task.job_id, remote_id=remote_id, error=None)
             published += 1
             logger.info("Опубликовано job=%d (%s) → %s", task.job_id, task.platform, remote_id)
@@ -175,6 +208,8 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
             await _notify(bot, task.user_id, f"❌ Не удалось опубликовать «{task.title}»: {exc}")
         finally:
             _cleanup(task.local_path)
+            for f in extra_files:
+                _cleanup(f)
     return published
 
 

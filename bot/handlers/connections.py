@@ -24,12 +24,34 @@ class SchedFlow(StatesGroup):
     waiting_times = State()
 
 
+class OverlayFlow(StatesGroup):
+    waiting_image = State()
+
+
+_POSITION_LABELS = {
+    "top_left": "↖", "top_center": "⬆", "top_right": "↗",
+    "middle_left": "⬅", "center": "⏺", "middle_right": "➡",
+    "bottom_left": "↙", "bottom_center": "⬇", "bottom_right": "↘",
+}
+_POSITION_GRID = [
+    ["top_left", "top_center", "top_right"],
+    ["middle_left", "center", "middle_right"],
+    ["bottom_left", "bottom_center", "bottom_right"],
+]
+
+
 def _sched_desc(conn: Connection) -> str:
     if conn.schedule_mode == "interval" and conn.interval_minutes:
         return f"⏱ каждые {conn.interval_minutes} мин"
     if conn.schedule_mode == "times" and conn.post_times:
         return f"🕐 в {', '.join(conn.post_times)} ({conn.tz})"
     return "⚡ сразу"
+
+
+def _ovl_desc(conn: Connection) -> str:
+    if conn.overlay_file_id and conn.overlay_position:
+        return f"вкл ({conn.overlay_position}, {conn.overlay_scale}%)"
+    return "выкл"
 
 _PRIVACY_NEXT = {"private": "unlisted", "unlisted": "public", "public": "private"}
 _PRIVACY_LABEL = {"private": "🔒 приватное", "unlisted": "🔗 по ссылке", "public": "🌍 публичное"}
@@ -86,6 +108,7 @@ def _card_text(conn: Connection) -> str:
         f"📤 Публикую на: <b>{conn.publish_account.channel_title}</b>\n"
         f"👁 Доступ публикаций: {_PRIVACY_LABEL.get(conn.privacy, conn.privacy)}\n"
         f"⏰ Расписание: {_sched_desc(conn)}\n"
+        f"🖼 Оверлей: {_ovl_desc(conn)}\n"
         f"⚙️ Статус: {status}"
     )
 
@@ -109,6 +132,12 @@ def _card_markup(conn: Connection) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text=f"⏰ Расписание: {_sched_desc(conn)}",
                     callback_data=f"conn_sched:{conn.id}",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text=f"🖼 Оверлей: {_ovl_desc(conn)}",
+                    callback_data=f"conn_ovl:{conn.id}",
                 )
             ],
             [InlineKeyboardButton(text="🗑 Удалить", callback_data=f"conn_del:{conn.id}")],
@@ -327,6 +356,159 @@ async def got_times(message: Message, state: FSMContext) -> None:
         await message.answer("Связка не найдена.")
         return
     await message.answer(_card_text(conn), reply_markup=_card_markup(conn))
+
+
+def _overlay_markup(conn: Connection) -> InlineKeyboardMarkup:
+    rows = []
+    for grid_row in _POSITION_GRID:
+        rows.append([
+            InlineKeyboardButton(
+                text=("• " if conn.overlay_position == p else "") + _POSITION_LABELS[p],
+                callback_data=f"ovl_pos:{conn.id}:{p}",
+            )
+            for p in grid_row
+        ])
+    rows.append([
+        InlineKeyboardButton(
+            text=("• " if conn.overlay_scale == s else "") + f"{s}%",
+            callback_data=f"ovl_scale:{conn.id}:{s}",
+        )
+        for s in (15, 25, 35, 50)
+    ])
+    rows.append([
+        InlineKeyboardButton(text="🔁 Заменить", callback_data=f"ovl_replace:{conn.id}"),
+        InlineKeyboardButton(text="🗑 Убрать", callback_data=f"ovl_del:{conn.id}"),
+    ])
+    rows.append([InlineKeyboardButton(text="« Назад", callback_data=f"conn:{conn.id}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+_OVERLAY_TEXT = (
+    "🖼 <b>Оверлей</b> — картинка/GIF поверх видео.\n\n"
+    "Выбери <b>позицию</b> (сетка) и <b>размер</b> (% ширины).\n"
+    "Текущая позиция отмечена точкой."
+)
+
+
+def _ovl_file_id(message: Message) -> str | None:
+    if message.photo:
+        return message.photo[-1].file_id
+    if message.animation:
+        return message.animation.file_id
+    if message.document:
+        return message.document.file_id
+    if message.sticker:
+        return message.sticker.file_id
+    return None
+
+
+@router.callback_query(F.data.startswith("conn_ovl:"))
+async def overlay_menu(callback: CallbackQuery, state: FSMContext) -> None:
+    conn_id = int(callback.data.split(":", 1)[1])
+    conn = await _load_one(conn_id, callback.from_user.id)
+    if conn is None:
+        await callback.answer("Связка не найдена", show_alert=True)
+        return
+    if conn.overlay_file_id:
+        await callback.message.edit_text(_OVERLAY_TEXT, reply_markup=_overlay_markup(conn))
+    else:
+        await state.update_data(conn_id=conn_id)
+        await state.set_state(OverlayFlow.waiting_image)
+        await callback.message.answer(
+            "Пришли <b>картинку</b>, <b>GIF</b> или стикер — наложу её на каждое видео этой связки."
+        )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("ovl_replace:"))
+async def overlay_replace(callback: CallbackQuery, state: FSMContext) -> None:
+    conn_id = int(callback.data.split(":", 1)[1])
+    await state.update_data(conn_id=conn_id)
+    await state.set_state(OverlayFlow.waiting_image)
+    await callback.message.answer("Пришли новую картинку/GIF для оверлея.")
+    await callback.answer()
+
+
+@router.message(OverlayFlow.waiting_image)
+async def overlay_got_image(message: Message, state: FSMContext) -> None:
+    file_id = _ovl_file_id(message)
+    if not file_id:
+        await message.answer("Это не картинка. Пришли фото, GIF, документ-изображение или стикер.")
+        return
+    data = await state.get_data()
+    async with get_session() as session:
+        conn = await session.scalar(
+            select(Connection)
+            .where(Connection.id == data["conn_id"], Connection.user_id == message.from_user.id)
+            .options(
+                joinedload(Connection.source_channel),
+                joinedload(Connection.publish_account),
+            )
+        )
+        if conn is None:
+            await state.clear()
+            await message.answer("Связка не найдена.")
+            return
+        conn.overlay_file_id = file_id
+        if not conn.overlay_position:
+            conn.overlay_position = "bottom_right"
+        markup = _overlay_markup(conn)
+    await state.clear()
+    await message.answer(
+        "✅ Картинка сохранена. Настрой позицию и размер:", reply_markup=markup
+    )
+
+
+async def _update_overlay(conn_id: int, user_id: int, **fields) -> Connection | None:
+    async with get_session() as session:
+        conn = await session.scalar(
+            select(Connection)
+            .where(Connection.id == conn_id, Connection.user_id == user_id)
+            .options(
+                joinedload(Connection.source_channel),
+                joinedload(Connection.publish_account),
+            )
+        )
+        if conn is None:
+            return None
+        for k, v in fields.items():
+            setattr(conn, k, v)
+        return conn
+
+
+@router.callback_query(F.data.startswith("ovl_pos:"))
+async def overlay_set_position(callback: CallbackQuery) -> None:
+    _, conn_id, pos = callback.data.split(":", 2)
+    conn = await _update_overlay(int(conn_id), callback.from_user.id, overlay_position=pos)
+    if conn is None:
+        await callback.answer("Не найдено", show_alert=True)
+        return
+    await callback.message.edit_text(_OVERLAY_TEXT, reply_markup=_overlay_markup(conn))
+    await callback.answer("Позиция обновлена")
+
+
+@router.callback_query(F.data.startswith("ovl_scale:"))
+async def overlay_set_scale(callback: CallbackQuery) -> None:
+    _, conn_id, scale = callback.data.split(":", 2)
+    conn = await _update_overlay(int(conn_id), callback.from_user.id, overlay_scale=int(scale))
+    if conn is None:
+        await callback.answer("Не найдено", show_alert=True)
+        return
+    await callback.message.edit_text(_OVERLAY_TEXT, reply_markup=_overlay_markup(conn))
+    await callback.answer("Размер обновлён")
+
+
+@router.callback_query(F.data.startswith("ovl_del:"))
+async def overlay_remove(callback: CallbackQuery) -> None:
+    conn_id = int(callback.data.split(":", 1)[1])
+    conn = await _update_overlay(
+        conn_id, callback.from_user.id, overlay_file_id=None, overlay_position=None
+    )
+    if conn is None:
+        await callback.answer("Не найдено", show_alert=True)
+        return
+    await callback.message.edit_text(_card_text(conn), reply_markup=_card_markup(conn))
+    await callback.answer("Оверлей убран")
 
 
 @router.callback_query(F.data.startswith("conn_delyes:"))
