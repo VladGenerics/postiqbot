@@ -209,7 +209,7 @@ async def support_forward(message: Message, state: FSMContext, bot: Bot) -> None
     )
 
 
-@router.message(F.reply_to_message.text.contains("Поддержка от"))
+@router.message(F.reply_to_message.text.contains("Поддержка (id"))
 async def admin_reply(message: Message, bot: Bot) -> None:
     """Админ отвечает Reply на пересланное сообщение поддержки → доставляем юзеру."""
     if message.from_user.id not in get_settings().admin_id_set:
