@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
@@ -151,3 +152,22 @@ async def support_forward(message: Message, state: FSMContext, bot: Bot) -> None
         if sent
         else "⚠️ Поддержка временно недоступна, попробуй позже."
     )
+
+
+@router.message(F.reply_to_message.text.contains("Поддержка от"))
+async def admin_reply(message: Message, bot: Bot) -> None:
+    """Админ отвечает Reply на пересланное сообщение поддержки → доставляем юзеру."""
+    if message.from_user.id not in get_settings().admin_id_set:
+        return
+    if not message.text:
+        return
+    m = re.search(r"id\s+(\d+)", message.reply_to_message.text)
+    if not m:
+        await message.reply("Не нашёл id пользователя в исходном сообщении.")
+        return
+    user_id = int(m.group(1))
+    try:
+        await bot.send_message(user_id, f"💬 <b>Ответ поддержки:</b>\n\n{message.text}")
+        await message.reply("✅ Доставлено пользователю.")
+    except Exception:  # noqa: BLE001
+        await message.reply("⚠️ Не удалось доставить (юзер не писал боту / заблокировал).")
