@@ -78,8 +78,8 @@ class PublishAccount(Base):
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.telegram_id", ondelete="CASCADE")
     )
-    project_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("oauth_projects.id", ondelete="RESTRICT")
+    project_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("oauth_projects.id", ondelete="RESTRICT"), nullable=True
     )
     platform: Mapped[str] = mapped_column(String(16), default="youtube")
     channel_id: Mapped[str] = mapped_column(String(64))

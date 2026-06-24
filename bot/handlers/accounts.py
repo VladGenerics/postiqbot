@@ -8,8 +8,9 @@ from bot.config import get_settings
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.services.crypto import decrypt
-from bot.services.oauth_state import encode_state
+from bot.services.oauth_state import encode_simple_state, encode_state
 from bot.services.projects import ensure_shared_project, pick_project
+from bot.services.tiktok_oauth import build_auth_url as tiktok_auth_url
 from bot.services.youtube_oauth import build_auth_url
 
 router = Router(name="accounts")
@@ -49,6 +50,33 @@ async def connect_youtube(callback: CallbackQuery) -> None:
     await callback.message.answer(
         "Нажми кнопку ниже и разреши доступ к своему YouTube-каналу.\n"
         "После подтверждения я пришлю сообщение, что канал подключён.\n\n"
+        "<i>Ссылка действует 10 минут.</i>",
+        reply_markup=kb,
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "connect_tiktok")
+async def connect_tiktok(callback: CallbackQuery) -> None:
+    settings = get_settings()
+    if not settings.tiktok_client_key:
+        await callback.message.answer("⚠️ TikTok пока не настроен на сервере.")
+        await callback.answer()
+        return
+    telegram_id = callback.from_user.id
+    await ensure_user(telegram_id)
+
+    state = encode_simple_state(telegram_id)
+    auth_url = tiktok_auth_url(state)
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔓 Войти через TikTok", url=auth_url)]
+        ]
+    )
+    await callback.message.answer(
+        "Нажми кнопку ниже и разреши доступ к своему TikTok-аккаунту.\n"
+        "После подтверждения я пришлю сообщение, что аккаунт подключён.\n\n"
         "<i>Ссылка действует 10 минут.</i>",
         reply_markup=kb,
     )

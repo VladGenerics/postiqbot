@@ -15,6 +15,11 @@ def main_menu() -> InlineKeyboardMarkup:
     )
     kb.row(
         InlineKeyboardButton(
+            text="🎵 Подключить TikTok", callback_data="connect_tiktok"
+        )
+    )
+    kb.row(
+        InlineKeyboardButton(
             text="📡 Добавить источник", callback_data="add_source"
         )
     )
