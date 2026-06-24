@@ -41,8 +41,15 @@ class Settings(BaseSettings):
     admin_ids: str = ""
 
     trial_days: int = 2
-    subscription_days: int = 30
-    subscription_stars: int = 250
+    sub_stars_7: int = 99
+    sub_stars_14: int = 179
+    sub_stars_30: int = 299
+    referral_bonus_days: int = 7
+
+    @property
+    def sub_tiers(self) -> dict[int, int]:
+        """{дни: цена в Stars}."""
+        return {7: self.sub_stars_7, 14: self.sub_stars_14, 30: self.sub_stars_30}
 
     @property
     def admin_id_set(self) -> set[int]:

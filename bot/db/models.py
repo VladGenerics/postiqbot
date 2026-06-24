@@ -41,6 +41,8 @@ class User(Base):
     subscription_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    referred_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    referral_rewarded: Mapped[bool] = mapped_column(Boolean, default=False)
 
     publish_accounts: Mapped[list["PublishAccount"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"

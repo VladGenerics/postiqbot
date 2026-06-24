@@ -33,6 +33,7 @@ def main_menu() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="💳 Подписка", callback_data="subscription"),
     )
     kb.row(
-        InlineKeyboardButton(text="✍️ Поддержка", callback_data="support")
+        InlineKeyboardButton(text="🎁 Рефералка", callback_data="referral"),
+        InlineKeyboardButton(text="✍️ Поддержка", callback_data="support"),
     )
     return kb.as_markup()

@@ -15,6 +15,7 @@ from aiogram.types import (
     Message,
     PreCheckoutQuery,
 )
+from sqlalchemy import func, select
 
 from bot.config import get_settings
 from bot.db.models import User
@@ -69,34 +70,36 @@ async def subscription_menu(callback: CallbackQuery) -> None:
         async with get_session() as session:
             user = await session.get(User, callback.from_user.id)
         status = status_text(user) if user else "Доступ не найден."
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[[
-            InlineKeyboardButton(
-                text=f"⭐ Оплатить {settings.subscription_stars} — {settings.subscription_days} дн.",
-                callback_data="buy_sub",
-            )
-        ]]
-    )
+    rows = [
+        [InlineKeyboardButton(
+            text=f"⭐ {stars} — {days} дней",
+            callback_data=f"buy_sub:{days}",
+        )]
+        for days, stars in settings.sub_tiers.items()
+    ]
     await callback.message.answer(
         f"💳 <b>Подписка</b>\n\n{status}\n\n"
-        f"Оплата через Telegram Stars — {settings.subscription_stars} ⭐ за "
-        f"{settings.subscription_days} дней доступа.",
-        reply_markup=kb,
+        "Оплата через Telegram Stars. Выбери срок:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
 
 
-@router.callback_query(F.data == "buy_sub")
+@router.callback_query(F.data.startswith("buy_sub:"))
 async def buy_subscription(callback: CallbackQuery, bot: Bot) -> None:
-    settings = get_settings()
+    days = int(callback.data.split(":", 1)[1])
+    stars = get_settings().sub_tiers.get(days)
+    if stars is None:
+        await callback.answer("Неверный тариф", show_alert=True)
+        return
     await bot.send_invoice(
         chat_id=callback.from_user.id,
-        title="Подписка PostiqBot",
-        description=f"Доступ к авто-репостингу на {settings.subscription_days} дней.",
-        payload="postiq_subscription",
+        title=f"Подписка PostiqBot — {days} дней",
+        description=f"Доступ к авто-репостингу на {days} дней.",
+        payload=f"sub:{days}",
         provider_token="",
         currency="XTR",
-        prices=[LabeledPrice(label="Подписка", amount=settings.subscription_stars)],
+        prices=[LabeledPrice(label=f"Подписка {days} дн.", amount=stars)],
     )
     await callback.answer()
 
@@ -107,12 +110,66 @@ async def pre_checkout(query: PreCheckoutQuery, bot: Bot) -> None:
 
 
 @router.message(F.successful_payment)
-async def on_paid(message: Message) -> None:
-    settings = get_settings()
-    until = await grant_subscription(message.from_user.id, settings.subscription_days)
+async def on_paid(message: Message, bot: Bot) -> None:
+    payload = message.successful_payment.invoice_payload
+    try:
+        days = int(payload.split(":", 1)[1])
+    except (IndexError, ValueError):
+        days = 30
+    until = await grant_subscription(message.from_user.id, days)
     await message.answer(
         f"✅ Оплата прошла! Подписка активна до <b>{until:%d.%m.%Y}</b>. Спасибо! 🙌"
     )
+    await _reward_referrer(bot, message.from_user.id)
+
+
+async def _reward_referrer(bot: Bot, payer_id: int) -> None:
+    """Начислить бонус пригласившему при ПЕРВОЙ оплате приглашённого."""
+    settings = get_settings()
+    async with get_session() as session:
+        payer = await session.get(User, payer_id)
+        if not payer or not payer.referred_by or payer.referral_rewarded:
+            return
+        payer.referral_rewarded = True
+        referrer_id = payer.referred_by
+    until = await grant_subscription(referrer_id, settings.referral_bonus_days)
+    try:
+        await bot.send_message(
+            referrer_id,
+            f"🎁 Твой приглашённый оформил подписку — тебе <b>+{settings.referral_bonus_days} дней</b>!\n"
+            f"Доступ активен до <b>{until:%d.%m.%Y}</b>.",
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+@router.callback_query(F.data == "referral")
+async def referral_menu(callback: CallbackQuery, bot: Bot) -> None:
+    await ensure_user(callback.from_user.id)
+    settings = get_settings()
+    me = await bot.get_me()
+    link = f"https://t.me/{me.username}?start=ref_{callback.from_user.id}"
+    async with get_session() as session:
+        invited = await session.scalar(
+            select(func.count()).select_from(User).where(
+                User.referred_by == callback.from_user.id
+            )
+        )
+        paid = await session.scalar(
+            select(func.count()).select_from(User).where(
+                User.referred_by == callback.from_user.id,
+                User.referral_rewarded.is_(True),
+            )
+        )
+    await callback.message.answer(
+        "🎁 <b>Реферальная программа</b>\n\n"
+        f"Приглашай друзей! Когда приглашённый оформит подписку — тебе "
+        f"<b>+{settings.referral_bonus_days} дней</b> доступа.\n\n"
+        f"Твоя ссылка:\n{link}\n\n"
+        f"👥 Приглашено: <b>{invited or 0}</b>\n"
+        f"💳 Оплатили (бонус начислен): <b>{paid or 0}</b>"
+    )
+    await callback.answer()
 
 
 class SupportFlow(StatesGroup):
@@ -134,17 +191,12 @@ async def support_forward(message: Message, state: FSMContext, bot: Bot) -> None
     if not message.text:
         await message.answer("Пришли текстом, пожалуйста.")
         return
-    uname = (
-        f"@{message.from_user.username}"
-        if message.from_user.username
-        else f"id {message.from_user.id}"
-    )
     sent = False
     for admin_id in get_settings().admin_id_set:
         try:
             await bot.send_message(
                 admin_id,
-                f"✍️ <b>Поддержка</b> от {uname} (id <code>{message.from_user.id}</code>):\n\n"
+                f"✍️ <b>Поддержка</b> (id <code>{message.from_user.id}</code>):\n\n"
                 f"{message.text}",
             )
             sent = True
