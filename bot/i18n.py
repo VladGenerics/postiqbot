@@ -58,8 +58,18 @@ T: dict[str, dict[str, str]] = {
         ),
     },
     "tariffs_caption": {
-        "ru": "💳 <b>Тарифы</b>\n\n{status}\n\nОплата через Telegram Stars. Выбери тариф ниже 👇",
-        "en": "💳 <b>Plans</b>\n\n{status}\n\nPayment via Telegram Stars. Pick a plan below 👇",
+        "ru": "💳 <b>Тарифы</b>\n\n{status}\n{prices}\n\nВыбери тариф ниже 👇",
+        "en": "💳 <b>Plans</b>\n\n{status}\n{prices}\n\nPick a plan below 👇",
+    },
+    "pay_choose": {
+        "ru": "💳 Тариф на <b>{days} дней</b>. Выбери способ оплаты:",
+        "en": "💳 <b>{days}-day</b> plan. Choose a payment method:",
+    },
+    "btn_pay_stars": {"ru": "⭐ Telegram Stars ({stars})", "en": "⭐ Telegram Stars ({stars})"},
+    "btn_pay_rub": {"ru": "₽ СБП / карта ({rub} ₽)", "en": "₽ Card / SBP ({rub} ₽)"},
+    "rub_soon": {
+        "ru": "₽ Оплата через СБП/карту скоро подключится. Пока можно оплатить через Telegram Stars (⭐) или написать в «✍️ Поддержка».",
+        "en": "₽ Card/SBP payment is coming soon. For now use Telegram Stars (⭐) or contact «✍️ Support».",
     },
     "status_admin": {"ru": "♾ Безлимитный доступ (админ)", "en": "♾ Unlimited access (admin)"},
     "profile_body": {

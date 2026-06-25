@@ -53,13 +53,13 @@ class Settings(BaseSettings):
 
     @property
     def sub_tiers(self) -> dict[int, dict[str, int]]:
-        """{дни: {stars, accounts, videos}}."""
+        """{дни: {stars, rub, accounts, videos}}."""
         return {
-            7: {"stars": 99, "accounts": 2, "videos": 25},
-            14: {"stars": 199, "accounts": 3, "videos": 60},
-            30: {"stars": 399, "accounts": 5, "videos": 100},
-            90: {"stars": 999, "accounts": 10, "videos": 500},
-            365: {"stars": 2499, "accounts": 25, "videos": 5000},
+            7: {"stars": 99, "rub": 159, "accounts": 2, "videos": 25},
+            14: {"stars": 199, "rub": 279, "accounts": 3, "videos": 60},
+            30: {"stars": 399, "rub": 479, "accounts": 5, "videos": 100},
+            90: {"stars": 999, "rub": 1190, "accounts": 10, "videos": 500},
+            365: {"stars": 2499, "rub": 3190, "accounts": 25, "videos": 5000},
         }
 
     @property

@@ -83,11 +83,15 @@ async def open_subscription(message: Message, user_id: int) -> None:
         status = status_text(user, lang) if user else "—"
     rows = [
         [InlineKeyboardButton(
-            text=f"⭐ {tier['stars']} — {days} дн.", callback_data=f"buy_sub:{days}"
+            text=f"{days} дн. — {tier['rub']} ₽", callback_data=f"buy_sub:{days}"
         )]
         for days, tier in settings.sub_tiers.items()
     ]
-    caption = t("tariffs_caption", lang, status=status)
+    prices = "\n".join(
+        f"• {days} дн. — <b>{tier['rub']} ₽</b> ({tier['accounts']} акк, {tier['videos']} видео)"
+        for days, tier in settings.sub_tiers.items()
+    )
+    caption = t("tariffs_caption", lang, status=status, prices=prices)
     await message.answer_photo(
         FSInputFile(_TARIFFS_IMG),
         caption=caption,
@@ -155,10 +159,30 @@ async def documents_menu(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data.startswith("buy_sub:"))
-async def buy_subscription(callback: CallbackQuery, bot: Bot) -> None:
+async def buy_subscription(callback: CallbackQuery) -> None:
     days = int(callback.data.split(":", 1)[1])
-    stars = get_settings().sub_tiers.get(days)
-    if stars is None:
+    tier = get_settings().sub_tiers.get(days)
+    if not tier:
+        await callback.answer("Неверный тариф", show_alert=True)
+        return
+    lang = await user_lang(callback.from_user.id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text=t("btn_pay_rub", lang, rub=tier["rub"]), callback_data=f"pay_rub:{days}"
+        )],
+        [InlineKeyboardButton(
+            text=t("btn_pay_stars", lang, stars=tier["stars"]), callback_data=f"pay_stars:{days}"
+        )],
+    ])
+    await callback.message.answer(t("pay_choose", lang, days=days), reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pay_stars:"))
+async def pay_stars(callback: CallbackQuery, bot: Bot) -> None:
+    days = int(callback.data.split(":", 1)[1])
+    tier = get_settings().sub_tiers.get(days)
+    if not tier:
         await callback.answer("Неверный тариф", show_alert=True)
         return
     await bot.send_invoice(
@@ -168,8 +192,15 @@ async def buy_subscription(callback: CallbackQuery, bot: Bot) -> None:
         payload=f"sub:{days}",
         provider_token="",
         currency="XTR",
-        prices=[LabeledPrice(label=f"Подписка {days} дн.", amount=stars)],
+        prices=[LabeledPrice(label=f"Подписка {days} дн.", amount=tier["stars"])],
     )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pay_rub:"))
+async def pay_rub(callback: CallbackQuery) -> None:
+    lang = await user_lang(callback.from_user.id)
+    await callback.message.answer(t("rub_soon", lang))
     await callback.answer()
 
 
