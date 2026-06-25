@@ -10,6 +10,7 @@ LANGS = ("ru", "en")
 LABELS: dict[str, dict[str, str]] = {
     "youtube": {"ru": "🔗 Подключить YouTube", "en": "🔗 Connect YouTube"},
     "tiktok": {"ru": "🎵 Подключить TikTok", "en": "🎵 Connect TikTok"},
+    "connect": {"ru": "🔗 Подключить аккаунт", "en": "🔗 Connect account"},
     "source": {"ru": "📡 Добавить источник", "en": "📡 Add source"},
     "connections": {"ru": "📋 Мои подключения", "en": "📋 My connections"},
     "tariff": {"ru": "💳 Тарифы", "en": "💳 Plans"},
@@ -18,6 +19,10 @@ LABELS: dict[str, dict[str, str]] = {
     "support": {"ru": "✍️ Поддержка", "en": "✍️ Support"},
     "profile": {"ru": "👤 Профиль", "en": "👤 Profile"},
     "documents": {"ru": "📄 Документы", "en": "📄 Documents"},
+    "choose_platform": {
+        "ru": "Какой аккаунт подключить?",
+        "en": "Which account to connect?",
+    },
     "lang": {"ru": "🌐 Switch to English", "en": "🌐 На русский"},
 }
 

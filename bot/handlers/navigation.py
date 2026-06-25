@@ -7,7 +7,11 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
 from bot.config import get_settings
-from bot.handlers.accounts import open_connect_tiktok, open_connect_youtube
+from bot.handlers.accounts import (
+    open_connect_menu,
+    open_connect_tiktok,
+    open_connect_youtube,
+)
 from bot.handlers.connections import open_connections
 from bot.handlers.extras import (
     open_documents,
@@ -22,6 +26,12 @@ from bot.i18n import labels, set_user_lang, t, user_lang
 from bot.keyboards.menus import main_reply_kb
 
 router = Router(name="navigation")
+
+
+@router.message(F.text.in_(labels("connect")))
+async def nav_connect(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await open_connect_menu(message, message.from_user.id)
 
 
 @router.message(F.text.in_(labels("youtube")))

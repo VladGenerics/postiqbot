@@ -84,6 +84,16 @@ async def open_connect_tiktok(message: Message, telegram_id: int) -> None:
     await message.answer(t("oauth_tiktok", lang), reply_markup=kb)
 
 
+async def open_connect_menu(message: Message, telegram_id: int) -> None:
+    """Компактное подключение: выбор платформы инлайн-кнопками."""
+    lang = await user_lang(telegram_id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("youtube", lang), callback_data="connect_youtube")],
+        [InlineKeyboardButton(text=t("tiktok", lang), callback_data="connect_tiktok")],
+    ])
+    await message.answer(t("choose_platform", lang), reply_markup=kb)
+
+
 @router.callback_query(F.data == "connect_youtube")
 async def connect_youtube(callback: CallbackQuery) -> None:
     await open_connect_youtube(callback.message, callback.from_user.id)
