@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     web_port: int = 8080
     public_domain: str = ""
 
+    privacy_url: str = "https://telegra.ph/Politika-konfidencialnosti-06-21-31"
+    terms_url: str = "https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19"
+    support_contact: str = ""
+
     monitor_interval_minutes: int = 10
     publish_interval_minutes: int = 5
 

@@ -17,6 +17,7 @@ LABELS: dict[str, dict[str, str]] = {
     "referral": {"ru": "🎁 Пригласить друга", "en": "🎁 Invite a friend"},
     "support": {"ru": "✍️ Поддержка", "en": "✍️ Support"},
     "profile": {"ru": "👤 Профиль", "en": "👤 Profile"},
+    "documents": {"ru": "📄 Документы", "en": "📄 Documents"},
     "lang": {"ru": "🌐 Switch to English", "en": "🌐 На русский"},
 }
 
@@ -71,6 +72,16 @@ T: dict[str, dict[str, str]] = {
             "🎁 Friends invited: <b>{invited}</b>\n\n"
             "Renew or change your plan — «💳 Plans»."
         ),
+    },
+    "documents_title": {
+        "ru": "📄 <b>Документы и поддержка</b>\n\nОзнакомься с условиями сервиса:",
+        "en": "📄 <b>Documents & support</b>\n\nPlease review the service terms:",
+    },
+    "btn_privacy": {"ru": "🔐 Политика конфиденциальности", "en": "🔐 Privacy Policy"},
+    "btn_terms": {"ru": "📄 Пользовательское соглашение", "en": "📄 Terms of Service"},
+    "support_line": {
+        "ru": "\n\n✍️ Поддержка: кнопка «Поддержка» в меню{contact}",
+        "en": "\n\n✍️ Support: the «Support» button in the menu{contact}",
     },
     "support_prompt": {
         "ru": "✍️ Напиши своё сообщение/вопрос одним сообщением — я передам в поддержку.",

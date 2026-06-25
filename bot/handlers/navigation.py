@@ -10,6 +10,7 @@ from bot.config import get_settings
 from bot.handlers.accounts import open_connect_tiktok, open_connect_youtube
 from bot.handlers.connections import open_connections
 from bot.handlers.extras import (
+    open_documents,
     open_guide,
     open_profile,
     open_referral,
@@ -77,6 +78,12 @@ async def nav_support(message: Message, state: FSMContext) -> None:
     await open_support(message, state, message.from_user.id)
 
 
+@router.message(F.text.in_(labels("documents")))
+async def nav_documents(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await open_documents(message, message.from_user.id)
+
+
 @router.message(F.text.in_(labels("lang")))
 async def nav_lang(message: Message, state: FSMContext) -> None:
     await state.clear()
@@ -123,11 +130,15 @@ async def cmd_support(message: Message, state: FSMContext) -> None:
 
 @router.message(Command("policy"))
 async def cmd_policy(message: Message) -> None:
-    domain = get_settings().public_domain or "34.34.114.44.sslip.io"
-    await message.answer(f"🔐 Privacy Policy:\nhttps://{domain}/privacy")
+    await message.answer(f"🔐 Политика конфиденциальности:\n{get_settings().privacy_url}")
 
 
 @router.message(Command("terms"))
 async def cmd_terms(message: Message) -> None:
-    domain = get_settings().public_domain or "34.34.114.44.sslip.io"
-    await message.answer(f"📄 Terms of Service:\nhttps://{domain}/terms")
+    await message.answer(f"📄 Пользовательское соглашение:\n{get_settings().terms_url}")
+
+
+@router.message(Command("docs"))
+async def cmd_docs(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await open_documents(message, message.from_user.id)

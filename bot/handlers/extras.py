@@ -136,6 +136,24 @@ async def profile_menu(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
+async def open_documents(message: Message, user_id: int) -> None:
+    lang = await user_lang(user_id)
+    s = get_settings()
+    contact = f" — {s.support_contact}" if s.support_contact else ""
+    text = t("documents_title", lang) + t("support_line", lang, contact=contact)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("btn_privacy", lang), url=s.privacy_url)],
+        [InlineKeyboardButton(text=t("btn_terms", lang), url=s.terms_url)],
+    ])
+    await message.answer(text, reply_markup=kb)
+
+
+@router.callback_query(F.data == "documents")
+async def documents_menu(callback: CallbackQuery) -> None:
+    await open_documents(callback.message, callback.from_user.id)
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("buy_sub:"))
 async def buy_subscription(callback: CallbackQuery, bot: Bot) -> None:
     days = int(callback.data.split(":", 1)[1])
