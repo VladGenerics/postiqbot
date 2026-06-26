@@ -9,6 +9,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from bot.config import get_settings
 from bot.services.downloader import process_pending
+from bot.services.payments_service import reconcile_payments
 from bot.services.publisher import process_scheduled
 from bot.services.rss_monitor import poll_sources
 
@@ -36,6 +37,15 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         pipeline_tick,
         IntervalTrigger(minutes=settings.publish_interval_minutes),
         id="pipeline",
+        max_instances=1,
+        coalesce=True,
+    )
+
+    scheduler.add_job(
+        reconcile_payments,
+        IntervalTrigger(minutes=10),
+        id="reconcile_payments",
+        args=[bot],
         max_instances=1,
         coalesce=True,
     )
