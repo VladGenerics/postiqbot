@@ -41,5 +41,11 @@ async def payment_callback(request: web.Request) -> web.Response:
     return web.Response(text="ok")
 
 
+async def payment_callback_ping(_: web.Request) -> web.Response:
+    """GET на тот же URL — для валидации/health-check провайдером (всегда 200)."""
+    return web.Response(text="ok")
+
+
 def add_payment_routes(app: web.Application) -> None:
     app.router.add_post("/payment/callback", payment_callback)
+    app.router.add_get("/payment/callback", payment_callback_ping)
