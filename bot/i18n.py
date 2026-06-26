@@ -71,7 +71,40 @@ T: dict[str, dict[str, str]] = {
         "ru": "₽ Оплата через СБП/карту скоро подключится. Пока можно оплатить через Telegram Stars (⭐) или написать в «✍️ Поддержка».",
         "en": "₽ Card/SBP payment is coming soon. For now use Telegram Stars (⭐) or contact «✍️ Support».",
     },
+    "pay_link": {
+        "ru": "💳 Счёт на <b>{amount} ₽</b> ({days} дн.) создан.\nОплати по кнопке ниже — доступ активируется автоматически после оплаты.",
+        "en": "💳 Invoice for <b>{amount} ₽</b> ({days}d) created.\nPay via the button below — access activates automatically after payment.",
+    },
+    "btn_pay_now": {"ru": "💳 Оплатить {amount} ₽", "en": "💳 Pay {amount} ₽"},
+    "pay_error": {
+        "ru": "⚠️ Не удалось создать счёт. Попробуй позже или напиши в «✍️ Поддержка».",
+        "en": "⚠️ Couldn't create the invoice. Try later or contact «✍️ Support».",
+    },
     "status_admin": {"ru": "♾ Безлимитный доступ (админ)", "en": "♾ Unlimited access (admin)"},
+    "expiry_soon": {
+        "ru": (
+            "⏳ Твой доступ заканчивается <b>{date}</b>.\n"
+            "Продли подписку, чтобы бот не переставал публиковать — нажми «💳 Тарифы»."
+        ),
+        "en": (
+            "⏳ Your access ends on <b>{date}</b>.\n"
+            "Renew to keep the bot publishing — tap «💳 Plans»."
+        ),
+    },
+    "publish_failed_auth": {
+        "ru": (
+            "❌ Не удалось опубликовать «{title}»: возможно, отозван доступ к каналу.\n"
+            "Переподключи аккаунт: «🔗 Подключить аккаунт»."
+        ),
+        "en": (
+            "❌ Couldn't publish «{title}»: channel access may have been revoked.\n"
+            "Reconnect the account: «🔗 Connect account»."
+        ),
+    },
+    "publish_failed": {
+        "ru": "❌ Не удалось опубликовать «{title}». Попробуем позже.",
+        "en": "❌ Couldn't publish «{title}». We'll retry later.",
+    },
     "profile_body": {
         "ru": (
             "👤 <b>Профиль</b>\n\n{status}\n\n"

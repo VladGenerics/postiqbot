@@ -47,6 +47,7 @@ class User(Base):
     tier_videos: Mapped[int] = mapped_column(Integer, default=5)
     videos_used: Mapped[int] = mapped_column(Integer, default=0)
     lang: Mapped[str] = mapped_column(String(2), default="ru")
+    expiry_warned: Mapped[bool] = mapped_column(Boolean, default=False)
 
     publish_accounts: Mapped[list["PublishAccount"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
@@ -219,3 +220,29 @@ class Job(Base):
     )
 
     connection: Mapped["Connection"] = relationship(back_populates="jobs")
+
+
+PAY_PENDING = "pending"
+PAY_PAID = "paid"
+PAY_FAILED = "failed"
+
+
+class Payment(Base):
+    """Платёж через внешнего провайдера (Platega: СБП/крипта)."""
+
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    days: Mapped[int] = mapped_column(Integer)
+    amount: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(8), default="RUB")
+    provider: Mapped[str] = mapped_column(String(16), default="platega")
+    provider_payment_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default=PAY_PENDING, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    paid_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

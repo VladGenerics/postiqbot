@@ -17,6 +17,7 @@ from bot.services.oauth_state import decode_state
 from bot.services.youtube_api import get_my_channel
 from bot.services.youtube_oauth import exchange_code
 from bot.web.pages import add_pages
+from bot.web.payment_callback import add_payment_routes
 from bot.web.tiktok_callback import tiktok_callback
 
 logger = logging.getLogger("postiqbot.oauth")
@@ -126,4 +127,5 @@ def build_web_app(bot: Bot) -> web.Application:
     app.router.add_get("/tiktok/callback", tiktok_callback)
     app.router.add_get("/healthz", lambda r: web.Response(text="ok"))
     add_pages(app)
+    add_payment_routes(app)
     return app

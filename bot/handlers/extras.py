@@ -20,10 +20,11 @@ from aiogram.types import (
 from sqlalchemy import func, select
 
 from bot.config import get_settings
-from bot.db.models import Connection, PublishAccount, User
+from bot.db.models import Connection, Payment, PublishAccount, User
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.i18n import t, user_lang
+from bot.services import platega
 from bot.services.subscription import grant_subscription, status_text
 
 logger = logging.getLogger("postiqbot.extras")
@@ -198,9 +199,47 @@ async def pay_stars(callback: CallbackQuery, bot: Bot) -> None:
 
 
 @router.callback_query(F.data.startswith("pay_rub:"))
-async def pay_rub(callback: CallbackQuery) -> None:
+async def pay_rub(callback: CallbackQuery, bot: Bot) -> None:
+    days = int(callback.data.split(":", 1)[1])
+    tier = get_settings().sub_tiers.get(days)
     lang = await user_lang(callback.from_user.id)
-    await callback.message.answer(t("rub_soon", lang))
+    if not tier:
+        await callback.answer("Неверный тариф", show_alert=True)
+        return
+    if not platega.is_configured():
+        await callback.message.answer(t("rub_soon", lang))
+        await callback.answer()
+        return
+
+    amount = tier["rub"]
+    me = await bot.get_me()
+    return_url = f"https://t.me/{me.username}"
+    try:
+        tx_id, redirect = await platega.create_payment(
+            amount=amount,
+            description=f"PostiqBot подписка {days} дней",
+            user_id=callback.from_user.id,
+            username=f"@{callback.from_user.username}" if callback.from_user.username else "",
+            return_url=return_url,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("Platega create_payment failed")
+        await callback.message.answer(t("pay_error", lang))
+        await callback.answer()
+        return
+
+    async with get_session() as session:
+        session.add(Payment(
+            user_id=callback.from_user.id, days=days, amount=amount,
+            currency="RUB", provider="platega", provider_payment_id=tx_id,
+        ))
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("btn_pay_now", lang, amount=amount), url=redirect)]
+    ])
+    await callback.message.answer(
+        t("pay_link", lang, amount=amount, days=days), reply_markup=kb
+    )
     await callback.answer()
 
 
@@ -224,6 +263,11 @@ async def on_paid(message: Message, bot: Bot) -> None:
         f"✅ Оплата прошла! Подписка активна до <b>{until:%d.%m.%Y}</b>. Спасибо! 🙌"
     )
     await _reward_referrer(bot, message.from_user.id)
+
+
+async def reward_referrer_public(bot: Bot, payer_id: int) -> None:
+    """Публичная обёртка для вызова из payment_callback."""
+    await _reward_referrer(bot, payer_id)
 
 
 async def _reward_referrer(bot: Bot, payer_id: int) -> None:
