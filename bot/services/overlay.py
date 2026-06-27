@@ -19,6 +19,28 @@ _POSITIONS = {
 _ANIMATED = {".gif", ".mp4", ".webm", ".mov", ".apng"}
 
 
+def _trim_transparent(path: str) -> str | None:
+    """Обрезать прозрачные поля статичной картинки до видимого содержимого."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext in _ANIMATED:
+        return None
+    try:
+        from PIL import Image
+
+        img = Image.open(path)
+        if img.mode not in ("RGBA", "LA") and "transparency" not in img.info:
+            return None
+        img = img.convert("RGBA")
+        bbox = img.getchannel("A").getbbox()
+        if not bbox or bbox == (0, 0, img.width, img.height):
+            return None
+        out = f"{os.path.splitext(path)[0]}_trim.png"
+        img.crop(bbox).save(out)
+        return out
+    except Exception:
+        return None
+
+
 def _video_width(path: str) -> int:
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
@@ -32,6 +54,8 @@ def apply_overlay(
     video_path: str, overlay_path: str, position: str, scale_pct: int
 ) -> str:
     """Наложить overlay на видео. Вернуть путь к новому файлу (синхронно)."""
+    trimmed = _trim_transparent(overlay_path)
+    overlay_path = trimmed or overlay_path
     width = _video_width(video_path)
     overlay_w = max(1, int(width * max(1, scale_pct) / 100))
     margin = max(2, int(width * 0.03))
@@ -65,6 +89,11 @@ def apply_overlay(
         out_path,
     ]
     subprocess.run(cmd, capture_output=True, text=True, check=True)
+    if trimmed:
+        try:
+            os.remove(trimmed)
+        except OSError:
+            pass
     return out_path
 
 
@@ -90,6 +119,8 @@ def make_preview(
     overlay_path: str, position: str, scale_pct: int, out_path: str
 ) -> str:
     """JPG-превью: оверлей прямо на экране телефона, строго в пределах экрана."""
+    trimmed = _trim_transparent(overlay_path)
+    overlay_path = trimmed or overlay_path
     sx, sy, sw, sh = _SCREEN_X, _SCREEN_Y, _SCREEN_W, _SCREEN_H
     overlay_w = max(1, int(sw * max(1, scale_pct) / 100))
     margin = max(2, int(sw * 0.03))
@@ -109,4 +140,9 @@ def make_preview(
         out_path,
     ]
     subprocess.run(cmd, capture_output=True, text=True, check=True)
+    if trimmed:
+        try:
+            os.remove(trimmed)
+        except OSError:
+            pass
     return out_path

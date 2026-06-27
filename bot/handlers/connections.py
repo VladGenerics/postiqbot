@@ -391,7 +391,7 @@ def _overlay_markup(conn: Connection) -> InlineKeyboardMarkup:
             text=("• " if conn.overlay_scale == s else "") + f"{s}%",
             callback_data=f"ovl_scale:{conn.id}:{s}",
         )
-        for s in (15, 25, 35, 50)
+        for s in (20, 35, 50, 75, 100)
     ])
     rows.append([
         InlineKeyboardButton(text="🔁 Заменить", callback_data=f"ovl_replace:{conn.id}"),
