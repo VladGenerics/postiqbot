@@ -158,7 +158,10 @@ async def _publish(task: _Task, path: str) -> str:
         return await asyncio.to_thread(_yt_upload, task, path)
     if task.platform == "tiktok":
         tokens = await tiktok_oauth.refresh_access_token(task.refresh_token)
-        return await tiktok_api.upload_to_inbox(tokens["access_token"], path)
+        access = tokens["access_token"]
+        if get_settings().tiktok_direct_post:
+            return await tiktok_api.direct_post(access, path, task.title)
+        return await tiktok_api.upload_to_inbox(access, path)
     raise ValueError(f"Неизвестная платформа: {task.platform}")
 
 
