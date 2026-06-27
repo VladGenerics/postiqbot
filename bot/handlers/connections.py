@@ -462,7 +462,11 @@ async def overlay_menu(callback: CallbackQuery, state: FSMContext) -> None:
         await state.update_data(conn_id=conn_id)
         await state.set_state(OverlayFlow.waiting_image)
         await callback.message.answer(
-            "Пришли <b>картинку</b>, <b>GIF</b> или стикер — наложу её на каждое видео этой связки."
+            "Пришли <b>картинку</b>, <b>GIF</b> или стикер — наложу её на каждое видео этой связки.\n\n"
+            "💡 <b>Нужен прозрачный фон?</b> Используй <b>PNG</b> с прозрачностью, "
+            "либо видео в <b>WebM/MOV</b> с альфа-каналом — и отправь его как "
+            "<b>📎 Файл</b> (не как видео/GIF!). Иначе Telegram пережмёт в MP4 и "
+            "фон станет белым."
         )
     await callback.answer()
 
@@ -472,7 +476,11 @@ async def overlay_replace(callback: CallbackQuery, state: FSMContext) -> None:
     conn_id = int(callback.data.split(":", 1)[1])
     await state.update_data(conn_id=conn_id)
     await state.set_state(OverlayFlow.waiting_image)
-    await callback.message.answer("Пришли новую картинку/GIF для оверлея.")
+    await callback.message.answer(
+        "Пришли новую картинку/GIF для оверлея.\n\n"
+        "💡 Для прозрачного фона: PNG с прозрачностью или WebM/MOV с альфой, "
+        "отправленные как <b>📎 Файл</b> (не как видео — иначе Telegram пережмёт в MP4 и фон станет белым)."
+    )
     await callback.answer()
 
 
