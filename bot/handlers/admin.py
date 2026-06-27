@@ -1,6 +1,7 @@
 """Админ-команды для управления пулом Google-проектов."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 
 from aiogram import Router
@@ -11,6 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from bot.config import get_settings
 from bot.db.models import (
+    JOB_FAILED,
     JOB_PENDING,
     Connection,
     Job,
@@ -19,8 +21,10 @@ from bot.db.models import (
     SourceChannel,
 )
 from bot.db.session import get_session
+from bot.services.archive import fetch_channel_archive
 from bot.services.projects import add_project
 from bot.services.rss_monitor import _fetch_for
+from bot.services.scheduling import compute_scheduled_at
 from bot.services.subscription import grant_subscription
 
 router = Router(name="admin")
@@ -197,6 +201,114 @@ async def cmd_forcepublish(message: Message, command: CommandObject) -> None:
         )
 
 
+async def _last_scheduled_at(connection_id: int) -> datetime | None:
+    async with get_session() as session:
+        return await session.scalar(
+            select(func.max(Job.scheduled_at)).where(
+                Job.connection_id == connection_id, Job.status != JOB_FAILED
+            )
+        )
+
+
+@router.message(Command("backfill"))
+async def cmd_backfill(message: Message, command: CommandObject) -> None:
+    """/backfill <connection_id> [N] — залить архив источника СТАРЫЕ→НОВЫЕ по расписанию связки (по одному видео за интервал)."""
+    if not _is_admin(message.from_user.id):
+        return
+    parts = (command.args or "").split()
+    if not parts or not parts[0].isdigit():
+        await message.answer(
+            "Использование: <code>/backfill &lt;connection_id&gt; [N]</code>\n"
+            "N — сколько самых старых видео взять (по умолчанию 50, максимум 1000)."
+        )
+        return
+    conn_id = int(parts[0])
+    n = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 50
+    n = max(1, min(n, 1000))
+
+    async with get_session() as session:
+        conn = await session.get(Connection, conn_id)
+        if conn is None:
+            await message.answer("⚠️ Связка не найдена.")
+            return
+        source = await session.get(SourceChannel, conn.source_channel_id)
+        sched_mode = conn.schedule_mode
+        interval = conn.interval_minutes
+        post_times = conn.post_times
+        tz = conn.tz
+    if source is None:
+        await message.answer("⚠️ У связки нет источника.")
+        return
+    if source.platform != "youtube":
+        await message.answer("⚠️ Бэкфилл архива пока поддержан только для YouTube.")
+        return
+
+    await message.answer(f"⏳ Собираю архив «{source.channel_title}» (до {n} видео)…")
+    try:
+        entries = await asyncio.to_thread(
+            fetch_channel_archive, source.channel_id, n
+        )
+    except Exception as exc:  # noqa: BLE001
+        await message.answer(f"❌ Не удалось получить архив: {exc}")
+        return
+    if not entries:
+        await message.answer("⚠️ Архив пуст или канал недоступен.")
+        return
+
+    now = datetime.now(timezone.utc)
+    running = await _last_scheduled_at(conn_id)
+    created = 0
+    first_at = last_at = None
+    async with get_session() as session:
+        for entry in entries:
+            sched = compute_scheduled_at(
+                mode=sched_mode,
+                interval_minutes=interval,
+                post_times=post_times,
+                tz_name=tz,
+                last_scheduled=running,
+                now=now,
+            )
+            stmt = (
+                insert(Job)
+                .values(
+                    connection_id=conn_id,
+                    source_video_id=entry.video_id,
+                    video_url=entry.url,
+                    title=entry.title,
+                    status=JOB_PENDING,
+                    scheduled_at=sched,
+                )
+                .on_conflict_do_nothing(constraint="uq_job_source_video")
+            )
+            res = await session.execute(stmt)
+            if res.rowcount:
+                created += 1
+                first_at = first_at or sched
+                last_at = sched
+            running = sched
+
+    if not created:
+        await message.answer(
+            "ℹ️ Новых видео не добавлено — все архивные ролики уже в очереди/опубликованы."
+        )
+        return
+    tail = (
+        f"\nПервое: {first_at:%d.%m %H:%M} · последнее: {last_at:%d.%m %H:%M} (UTC)"
+        if first_at and last_at else ""
+    )
+    note = (
+        "\n⚠️ Расписание связки «immediate» — видео пойдут так быстро, как "
+        "позволит дневная квота проекта (6/день). Для ровного потока поставь "
+        "интервал в настройках связки."
+        if sched_mode not in ("interval", "times") else ""
+    )
+    await message.answer(
+        f"✅ В очередь поставлено <b>{created}</b> видео из архива "
+        f"«{source.channel_title}» (старые → новые).{tail}{note}"
+    )
+
+
 @router.message(Command("help"))
 async def cmd_help(message: Message) -> None:
     """/help — список админ-команд. Виден и работает ТОЛЬКО для админов."""
@@ -213,6 +325,9 @@ async def cmd_help(message: Message) -> None:
         "<b>/grant</b> &lt;user_id&gt; &lt;дней&gt; — продлить подписку пользователю\n"
         "<b>/forcepublish</b> &lt;connection_id&gt; — опубликовать последнее видео "
         "источника сейчас, минуя защиту от бэклога (тест/демо)\n"
+        "<b>/backfill</b> &lt;connection_id&gt; [N] — залить архив источника "
+        "старые→новые по расписанию (по одному за интервал); N — сколько брать "
+        "(умолч. 50, макс. 1000)\n"
         "<b>/help</b> — этот список\n\n"
         "<i>Команды видны только админам из ADMIN_IDS; остальным бот не отвечает.</i>"
     )
