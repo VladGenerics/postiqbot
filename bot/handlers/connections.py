@@ -408,6 +408,16 @@ _OVERLAY_TEXT = (
 )
 
 
+_OVERLAY_TRANSPARENT_HINT = (
+    "⚠️ <b>Если у фото прозрачный фон</b> (PNG без фона) — отправь его "
+    "<b>как ДОКУМЕНТ/Файл</b>, а не как обычное фото!\n\n"
+    "Как отправить файлом:\n"
+    "📎 Скрепка → <b>Файл</b> → выбери своё PNG → отправить.\n\n"
+    "Если отправить как «Фото», Telegram сожмёт его в JPEG и "
+    "<b>прозрачность пропадёт</b> — фон станет белым."
+)
+
+
 def _ovl_file_id(message: Message) -> str | None:
     if message.photo:
         return message.photo[-1].file_id
@@ -463,10 +473,7 @@ async def overlay_menu(callback: CallbackQuery, state: FSMContext) -> None:
         await state.set_state(OverlayFlow.waiting_image)
         await callback.message.answer(
             "Пришли <b>картинку</b>, <b>GIF</b> или стикер — наложу её на каждое видео этой связки.\n\n"
-            "💡 <b>Нужен прозрачный фон?</b> Используй <b>PNG</b> с прозрачностью, "
-            "либо видео в <b>WebM/MOV</b> с альфа-каналом — и отправь его как "
-            "<b>📎 Файл</b> (не как видео/GIF!). Иначе Telegram пережмёт в MP4 и "
-            "фон станет белым."
+            + _OVERLAY_TRANSPARENT_HINT
         )
     await callback.answer()
 
@@ -477,9 +484,7 @@ async def overlay_replace(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(conn_id=conn_id)
     await state.set_state(OverlayFlow.waiting_image)
     await callback.message.answer(
-        "Пришли новую картинку/GIF для оверлея.\n\n"
-        "💡 Для прозрачного фона: PNG с прозрачностью или WebM/MOV с альфой, "
-        "отправленные как <b>📎 Файл</b> (не как видео — иначе Telegram пережмёт в MP4 и фон станет белым)."
+        "Пришли новую картинку/GIF для оверлея.\n\n" + _OVERLAY_TRANSPARENT_HINT
     )
     await callback.answer()
 
