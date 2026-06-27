@@ -1,15 +1,26 @@
 """Админ-команды для управления пулом Google-проектов."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from aiogram import Router
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 
 from bot.config import get_settings
-from bot.db.models import OAuthProject, PublishAccount
+from bot.db.models import (
+    JOB_PENDING,
+    Connection,
+    Job,
+    OAuthProject,
+    PublishAccount,
+    SourceChannel,
+)
 from bot.db.session import get_session
 from bot.services.projects import add_project
+from bot.services.rss_monitor import _fetch_for
 from bot.services.subscription import grant_subscription
 
 router = Router(name="admin")
@@ -130,3 +141,78 @@ async def cmd_delproject(message: Message, command: CommandObject) -> None:
         name = project.name
         await session.delete(project)
     await message.answer(f"🗑 Проект <b>{name}</b> удалён из пула.")
+
+
+@router.message(Command("forcepublish"))
+async def cmd_forcepublish(message: Message, command: CommandObject) -> None:
+    """/forcepublish <connection_id> — взять ПОСЛЕДНЕЕ видео источника и поставить на публикацию сейчас."""
+    if not _is_admin(message.from_user.id):
+        return
+    arg = (command.args or "").strip()
+    if not arg.isdigit():
+        await message.answer("Использование: <code>/forcepublish &lt;connection_id&gt;</code>")
+        return
+    async with get_session() as session:
+        conn = await session.get(Connection, int(arg))
+        if conn is None:
+            await message.answer("⚠️ Связка не найдена.")
+            return
+        source = await session.get(SourceChannel, conn.source_channel_id)
+    if source is None:
+        await message.answer("⚠️ У связки нет источника.")
+        return
+
+    feed = await _fetch_for(source)
+    if feed is None or not feed.entries:
+        await message.answer(
+            f"⚠️ Не удалось получить видео источника «{source.channel_title}»."
+        )
+        return
+
+    entry = feed.entries[0]
+    async with get_session() as session:
+        stmt = (
+            insert(Job)
+            .values(
+                connection_id=conn.id,
+                source_video_id=entry.video_id,
+                video_url=entry.url,
+                title=entry.title,
+                status=JOB_PENDING,
+                scheduled_at=datetime.now(timezone.utc),
+            )
+            .on_conflict_do_nothing(constraint="uq_job_source_video")
+        )
+        res = await session.execute(stmt)
+
+    if res.rowcount:
+        await message.answer(
+            f"✅ «{entry.title}» поставлено в очередь (связка #{conn.id}).\n"
+            "Опубликует в ближайшие ~5–10 мин (скачивание → загрузка)."
+        )
+    else:
+        await message.answer(
+            "ℹ️ Это видео уже обрабатывалось ранее (job существует). "
+            "Дождись нового ролика на источнике."
+        )
+
+
+@router.message(Command("help"))
+async def cmd_help(message: Message) -> None:
+    """/help — список админ-команд. Виден и работает ТОЛЬКО для админов."""
+    if not _is_admin(message.from_user.id):
+        return
+    await message.answer(
+        "🛠 <b>Админ-команды</b> (только для админов)\n\n"
+        "<b>/projects</b> — список Google-проектов в пуле и их квоты\n"
+        "<b>/addproject</b> &lt;name&gt; &lt;client_id&gt; &lt;secret&gt; — добавить проект "
+        "в пул (+6 видео/день)\n"
+        "<b>/toggleproject</b> &lt;id&gt; — вкл/выкл проект (выключенный не раздаётся "
+        "новым подключениям, привязанные аккаунты работают)\n"
+        "<b>/delproject</b> &lt;id&gt; — удалить проект (только если к нему 0 аккаунтов)\n"
+        "<b>/grant</b> &lt;user_id&gt; &lt;дней&gt; — продлить подписку пользователю\n"
+        "<b>/forcepublish</b> &lt;connection_id&gt; — опубликовать последнее видео "
+        "источника сейчас, минуя защиту от бэклога (тест/демо)\n"
+        "<b>/help</b> — этот список\n\n"
+        "<i>Команды видны только админам из ADMIN_IDS; остальным бот не отвечает.</i>"
+    )
