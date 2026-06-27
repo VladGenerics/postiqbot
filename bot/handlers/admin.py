@@ -7,18 +7,20 @@ from datetime import datetime, timezone
 from aiogram import Router
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 
 from bot.config import get_settings
 from bot.db.models import (
     JOB_FAILED,
     JOB_PENDING,
+    JOB_PUBLISHED,
     Connection,
     Job,
     OAuthProject,
     PublishAccount,
     SourceChannel,
+    User,
 )
 from bot.db.session import get_session
 from bot.services.archive import fetch_channel_archive
@@ -309,6 +311,83 @@ async def cmd_backfill(message: Message, command: CommandObject) -> None:
     )
 
 
+@router.message(Command("republish"))
+async def cmd_republish(message: Message, command: CommandObject) -> None:
+    """/republish <connection_id> — заново опубликовать ПОСЛЕДНЕЕ видео связки (сбросить опубликованный job в очередь)."""
+    if not _is_admin(message.from_user.id):
+        return
+    arg = (command.args or "").strip()
+    if not arg.isdigit():
+        await message.answer("Использование: <code>/republish &lt;connection_id&gt;</code>")
+        return
+    conn_id = int(arg)
+    async with get_session() as session:
+        job = await session.scalar(
+            select(Job)
+            .where(Job.connection_id == conn_id, Job.status == JOB_PUBLISHED)
+            .order_by(Job.id.desc())
+            .limit(1)
+        )
+        if job is None:
+            await message.answer(
+                "⚠️ У связки нет опубликованных видео для повторной заливки."
+            )
+            return
+        title = job.title
+        job.status = JOB_PENDING
+        job.scheduled_at = datetime.now(timezone.utc)
+        job.youtube_video_id = None
+        job.error = None
+    await message.answer(
+        f"♻️ «{title}» снова в очереди (связка #{conn_id}).\n"
+        "Бот заново скачает и опубликует в ближайшие ~5–10 мин."
+    )
+
+
+@router.message(Command("stats"))
+async def cmd_stats(message: Message) -> None:
+    """/stats — сводка по боту: пользователи, аккаунты, связки, публикации."""
+    if not _is_admin(message.from_user.id):
+        return
+    now = datetime.now(timezone.utc)
+    async with get_session() as session:
+        users = await session.scalar(select(func.count()).select_from(User)) or 0
+        active = await session.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(or_(User.trial_until > now, User.subscription_until > now))
+        ) or 0
+        paid = await session.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(User.subscription_until > now)
+        ) or 0
+        accounts = await session.scalar(
+            select(func.count()).select_from(PublishAccount)
+        ) or 0
+        conns_total = await session.scalar(
+            select(func.count()).select_from(Connection)
+        ) or 0
+        conns_active = await session.scalar(
+            select(func.count())
+            .select_from(Connection)
+            .where(Connection.is_active.is_(True))
+        ) or 0
+        published = await session.scalar(
+            select(func.count())
+            .select_from(Job)
+            .where(Job.status == JOB_PUBLISHED)
+        ) or 0
+    await message.answer(
+        "📊 <b>Статистика PostiqBot</b>\n\n"
+        f"👥 Пользователей всего: <b>{users}</b>\n"
+        f"✅ С активным доступом: <b>{active}</b> (из них платных: {paid})\n"
+        f"🔗 Подключённых аккаунтов: <b>{accounts}</b>\n"
+        f"🔁 Связок: <b>{conns_active}</b> активных / {conns_total} всего\n"
+        f"🎬 Опубликовано видео: <b>{published}</b>"
+    )
+
+
 @router.message(Command("help"))
 async def cmd_help(message: Message) -> None:
     """/help — список админ-команд. Виден и работает ТОЛЬКО для админов."""
@@ -328,6 +407,9 @@ async def cmd_help(message: Message) -> None:
         "<b>/backfill</b> &lt;connection_id&gt; [N] — залить архив источника "
         "старые→новые по расписанию (по одному за интервал); N — сколько брать "
         "(умолч. 50, макс. 1000)\n"
+        "<b>/republish</b> &lt;connection_id&gt; — заново опубликовать последнее "
+        "видео связки (если удалил вручную)\n"
+        "<b>/stats</b> — сводка: пользователи, аккаунты, связки, публикации\n"
         "<b>/help</b> — этот список\n\n"
         "<i>Команды видны только админам из ADMIN_IDS; остальным бот не отвечает.</i>"
     )
