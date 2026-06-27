@@ -4,10 +4,10 @@ from __future__ import annotations
 from aiogram import Router
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from bot.config import get_settings
-from bot.db.models import OAuthProject
+from bot.db.models import OAuthProject, PublishAccount
 from bot.db.session import get_session
 from bot.services.projects import add_project
 from bot.services.subscription import grant_subscription
@@ -80,3 +80,53 @@ async def cmd_projects(message: Message) -> None:
         for p in projects
     ]
     await message.answer("\n".join(lines))
+
+
+@router.message(Command("toggleproject"))
+async def cmd_toggleproject(message: Message, command: CommandObject) -> None:
+    """/toggleproject <id> — включить/выключить проект в пуле."""
+    if not _is_admin(message.from_user.id):
+        return
+    arg = (command.args or "").strip()
+    if not arg.isdigit():
+        await message.answer("Использование: <code>/toggleproject &lt;id&gt;</code>")
+        return
+    async with get_session() as session:
+        project = await session.get(OAuthProject, int(arg))
+        if project is None:
+            await message.answer("⚠️ Проект не найден.")
+            return
+        project.is_active = not project.is_active
+        state = "🟢 включён" if project.is_active else "🔴 выключен"
+    await message.answer(f"Проект <b>{project.name}</b> (#{project.id}) — {state}.")
+
+
+@router.message(Command("delproject"))
+async def cmd_delproject(message: Message, command: CommandObject) -> None:
+    """/delproject <id> — удалить проект из пула."""
+    if not _is_admin(message.from_user.id):
+        return
+    arg = (command.args or "").strip()
+    if not arg.isdigit():
+        await message.answer("Использование: <code>/delproject &lt;id&gt;</code>")
+        return
+    async with get_session() as session:
+        project = await session.get(OAuthProject, int(arg))
+        if project is None:
+            await message.answer("⚠️ Проект не найден.")
+            return
+        attached = await session.scalar(
+            select(func.count())
+            .select_from(PublishAccount)
+            .where(PublishAccount.project_id == project.id)
+        )
+        if attached:
+            await message.answer(
+                f"⚠️ К проекту <b>{project.name}</b> привязано аккаунтов: {attached}. "
+                "Удаление сломает их публикацию.\n"
+                f"Если нужно просто убрать из ротации — <code>/toggleproject {project.id}</code>."
+            )
+            return
+        name = project.name
+        await session.delete(project)
+    await message.answer(f"🗑 Проект <b>{name}</b> удалён из пула.")
