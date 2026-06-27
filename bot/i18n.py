@@ -19,6 +19,7 @@ LABELS: dict[str, dict[str, str]] = {
     "support": {"ru": "✍️ Поддержка", "en": "✍️ Support"},
     "profile": {"ru": "👤 Профиль", "en": "👤 Profile"},
     "documents": {"ru": "📄 Документы", "en": "📄 Documents"},
+    "more": {"ru": "ℹ️ Ещё", "en": "ℹ️ More"},
     "choose_platform": {
         "ru": "Какой аккаунт подключить?",
         "en": "Which account to connect?",
@@ -43,6 +44,7 @@ T: dict[str, dict[str, str]] = {
             "Start by connecting your channel, then add a source."
         ),
     },
+    "more_title": {"ru": "ℹ️ <b>Дополнительно</b>", "en": "ℹ️ <b>More</b>"},
     "lang_switched": {
         "ru": "🌐 Язык переключён на русский.",
         "en": "🌐 Language switched to English.",
@@ -197,7 +199,9 @@ T: dict[str, dict[str, str]] = {
             "<b>3. Настрой связку</b>\n"
             "«📋 Мои подключения» → расписание, оверлей (картинка/GIF), доступ, пауза.\n\n"
             "<b>Важно</b>\n"
-            "• Публикуются только <b>новые</b> видео.\n"
+            "• ⚠️ <b>Верифицируй свой YouTube-канал</b> на youtube.com/verify (по телефону) — "
+            "без этого YouTube разрешает заливать видео <b>только как приватные</b>.\n"
+            "• Публикуются только <b>новые</b> видео (одно видео не репостится дважды).\n"
             "• TikTok-публикация приходит в черновики — публикуешь сам.\n"
             "• Доступ: триал, затем подписка («💳 Тарифы»). Вопросы — «✍️ Поддержка»."
         ),
@@ -212,7 +216,9 @@ T: dict[str, dict[str, str]] = {
             "<b>3. Configure the link</b>\n"
             "«📋 My connections» → schedule, overlay (image/GIF), visibility, pause.\n\n"
             "<b>Important</b>\n"
-            "• Only <b>new</b> videos are published.\n"
+            "• ⚠️ <b>Verify your YouTube channel</b> at youtube.com/verify (by phone) — "
+            "otherwise YouTube only allows uploading videos as <b>private</b>.\n"
+            "• Only <b>new</b> videos are published (a video isn't reposted twice).\n"
             "• TikTok posts land in drafts — you publish them yourself.\n"
             "• Access: trial, then subscription («💳 Plans»). Questions — «✍️ Support»."
         ),

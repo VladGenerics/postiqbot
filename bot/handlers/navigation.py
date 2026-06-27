@@ -4,14 +4,10 @@ from __future__ import annotations
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from bot.config import get_settings
-from bot.handlers.accounts import (
-    open_connect_menu,
-    open_connect_tiktok,
-    open_connect_youtube,
-)
+from bot.handlers.accounts import open_connect_menu
 from bot.handlers.connections import open_connections
 from bot.handlers.extras import (
     open_documents,
@@ -22,7 +18,7 @@ from bot.handlers.extras import (
     open_support,
 )
 from bot.handlers.sources import open_add_source
-from bot.i18n import labels, set_user_lang, t, user_lang
+from bot.i18n import label, labels, set_user_lang, t, user_lang
 from bot.keyboards.menus import main_reply_kb
 
 router = Router(name="navigation")
@@ -32,18 +28,6 @@ router = Router(name="navigation")
 async def nav_connect(message: Message, state: FSMContext) -> None:
     await state.clear()
     await open_connect_menu(message, message.from_user.id)
-
-
-@router.message(F.text.in_(labels("youtube")))
-async def nav_youtube(message: Message, state: FSMContext) -> None:
-    await state.clear()
-    await open_connect_youtube(message, message.from_user.id)
-
-
-@router.message(F.text.in_(labels("tiktok")))
-async def nav_tiktok(message: Message, state: FSMContext) -> None:
-    await state.clear()
-    await open_connect_tiktok(message, message.from_user.id)
 
 
 @router.message(F.text.in_(labels("source")))
@@ -70,36 +54,27 @@ async def nav_tariff(message: Message, state: FSMContext) -> None:
     await open_subscription(message, message.from_user.id)
 
 
-@router.message(F.text.in_(labels("guide")))
-async def nav_guide(message: Message, state: FSMContext) -> None:
+@router.message(F.text.in_(labels("more")))
+async def nav_more(message: Message, state: FSMContext) -> None:
+    """Подменю «Ещё» — второстепенные разделы инлайн-кнопками."""
     await state.clear()
-    await open_guide(message, message.from_user.id)
+    lang = await user_lang(message.from_user.id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=label("guide", lang), callback_data="guide")],
+        [InlineKeyboardButton(text=label("referral", lang), callback_data="referral")],
+        [InlineKeyboardButton(text=label("documents", lang), callback_data="documents")],
+        [InlineKeyboardButton(text=label("support", lang), callback_data="support")],
+        [InlineKeyboardButton(text=label("lang", lang), callback_data="toggle_lang")],
+    ])
+    await message.answer(t("more_title", lang), reply_markup=kb)
 
 
-@router.message(F.text.in_(labels("referral")))
-async def nav_referral(message: Message, state: FSMContext, bot: Bot) -> None:
-    await state.clear()
-    await open_referral(message, bot, message.from_user.id)
-
-
-@router.message(F.text.in_(labels("support")))
-async def nav_support(message: Message, state: FSMContext) -> None:
-    await state.clear()
-    await open_support(message, state, message.from_user.id)
-
-
-@router.message(F.text.in_(labels("documents")))
-async def nav_documents(message: Message, state: FSMContext) -> None:
-    await state.clear()
-    await open_documents(message, message.from_user.id)
-
-
-@router.message(F.text.in_(labels("lang")))
-async def nav_lang(message: Message, state: FSMContext) -> None:
-    await state.clear()
-    new = "en" if (await user_lang(message.from_user.id)) == "ru" else "ru"
-    await set_user_lang(message.from_user.id, new)
-    await message.answer(t("lang_switched", new), reply_markup=main_reply_kb(new))
+@router.callback_query(F.data == "toggle_lang")
+async def cb_toggle_lang(callback) -> None:
+    new = "en" if (await user_lang(callback.from_user.id)) == "ru" else "ru"
+    await set_user_lang(callback.from_user.id, new)
+    await callback.message.answer(t("lang_switched", new), reply_markup=main_reply_kb(new))
+    await callback.answer()
 
 
 @router.message(Command("profile"))
