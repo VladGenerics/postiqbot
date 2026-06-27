@@ -51,6 +51,12 @@ class Settings(BaseSettings):
 
     admin_ids: str = ""
 
+    private_mode: bool = False
+    private_message: str = (
+        "🚀 <b>PostiqBot запускается 30 июня!</b>\n\n"
+        "Подпишись на канал, чтобы на старте забрать бесплатный доступ на 3 дня."
+    )
+
     trial_days: int = 3
     trial_accounts: int = 1
     trial_videos: int = 5

@@ -20,6 +20,7 @@ from bot.handlers import (
     sources,
     start,
 )
+from bot.middlewares.private_mode import PrivateModeMiddleware
 from bot.scheduler import setup_scheduler
 from bot.web.oauth_callback import build_web_app
 
@@ -32,6 +33,9 @@ logger = logging.getLogger("postiqbot")
 
 def build_dispatcher() -> Dispatcher:
     dp = Dispatcher()
+    allowed = get_settings().admin_id_set
+    dp.message.outer_middleware(PrivateModeMiddleware(allowed))
+    dp.callback_query.outer_middleware(PrivateModeMiddleware(allowed))
     dp.include_router(start.router)
     dp.include_router(navigation.router)
     dp.include_router(accounts.router)

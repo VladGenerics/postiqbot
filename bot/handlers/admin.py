@@ -388,6 +388,30 @@ async def cmd_stats(message: Message) -> None:
     )
 
 
+@router.message(Command("private"))
+async def cmd_private(message: Message, command: CommandObject) -> None:
+    """/private on|off — приватный режим (пред-запуск): бот только для админов."""
+    if not _is_admin(message.from_user.id):
+        return
+    from bot.middlewares.private_mode import is_private, set_private
+
+    arg = (command.args or "").strip().lower()
+    if arg in ("on", "вкл", "1", "true"):
+        set_private(True)
+        await message.answer("🔒 Приватный режим <b>ВКЛЮЧЁН</b> — бот отвечает только админам.")
+    elif arg in ("off", "выкл", "0", "false"):
+        set_private(False)
+        await message.answer("🌍 Приватный режим <b>ВЫКЛЮЧЕН</b> — бот открыт для всех.")
+    else:
+        now = "🔒 ВКЛ" if is_private() else "🌍 ВЫКЛ"
+        await message.answer(
+            f"Приватный режим сейчас: <b>{now}</b>\n"
+            "Использование: <code>/private on</code> или <code>/private off</code>\n\n"
+            "⚠️ Команда действует до перезапуска. Чтобы режим переживал рестарт — "
+            "выстави <code>PRIVATE_MODE=true</code> в <code>.env</code>."
+        )
+
+
 @router.message(Command("help"))
 async def cmd_help(message: Message) -> None:
     """/help — список админ-команд. Виден и работает ТОЛЬКО для админов."""
@@ -410,6 +434,7 @@ async def cmd_help(message: Message) -> None:
         "<b>/republish</b> &lt;connection_id&gt; — заново опубликовать последнее "
         "видео связки (если удалил вручную)\n"
         "<b>/stats</b> — сводка: пользователи, аккаунты, связки, публикации\n"
+        "<b>/private</b> on|off — пред-запуск: бот только для админов\n"
         "<b>/help</b> — этот список\n\n"
         "<i>Команды видны только админам из ADMIN_IDS; остальным бот не отвечает.</i>"
     )
