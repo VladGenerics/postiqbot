@@ -153,7 +153,7 @@ class Connection(Base):
         Integer, ForeignKey("source_channels.id", ondelete="CASCADE")
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    privacy: Mapped[str] = mapped_column(String(16), default="private")
+    privacy: Mapped[str] = mapped_column(String(16), default="public")
 
     schedule_mode: Mapped[str] = mapped_column(String(16), default="immediate")
     interval_minutes: Mapped[int] = mapped_column(Integer, default=0)
