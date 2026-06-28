@@ -20,15 +20,21 @@ def _flat_opts() -> dict:
     }
 
 
-def fetch_channel_archive(channel_id: str, limit: int) -> list[FeedEntry]:
-    """Все видео YouTube-канала в порядке СТАРЫЕ → НОВЫЕ, не более `limit`."""
-    url = f"https://www.youtube.com/channel/{channel_id}/videos"
-    with yt_dlp.YoutubeDL(_flat_opts()) as ydl:
-        info = ydl.extract_info(url, download=False)
+def _archive_urls(channel_id: str) -> list[str]:
+    """URL'ы для перебора."""
+    urls: list[str] = []
+    if channel_id.startswith("UC"):
+        urls.append(f"https://www.youtube.com/playlist?list=UU{channel_id[2:]}")
+    urls += [
+        f"https://www.youtube.com/channel/{channel_id}/videos",
+        f"https://www.youtube.com/channel/{channel_id}/shorts",
+    ]
+    return urls
 
-    raw = (info or {}).get("entries") or []
+
+def _entries_from(info: dict | None) -> list[FeedEntry]:
     items: list[FeedEntry] = []
-    for e in raw:
+    for e in (info or {}).get("entries") or []:
         if not e:
             continue
         vid = e.get("id")
@@ -41,6 +47,21 @@ def fetch_channel_archive(channel_id: str, limit: int) -> list[FeedEntry]:
                 url=e.get("url") or f"https://youtu.be/{vid}",
             )
         )
+    return items
 
-    items.reverse()
-    return items[:limit]
+
+def fetch_channel_archive(channel_id: str, limit: int) -> list[FeedEntry]:
+    """Все ролики YouTube-канала (включая Shorts) в порядке СТАРЫЕ → НОВЫЕ, не более `limit`."""
+    for url in _archive_urls(channel_id):
+        try:
+            with yt_dlp.YoutubeDL(_flat_opts()) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("archive: %s — %s", url, exc)
+            continue
+        items = _entries_from(info)
+        if items:
+            items.reverse()
+            logger.info("archive: %d роликов из %s", len(items), url)
+            return items[:limit]
+    return []

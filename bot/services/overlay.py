@@ -57,7 +57,8 @@ def apply_overlay(
     trimmed = _trim_transparent(overlay_path)
     overlay_path = trimmed or overlay_path
     width = _video_width(video_path)
-    overlay_w = max(1, int(width * max(1, scale_pct) / 100))
+    overlay_w = max(2, int(width * max(1, scale_pct) / 100))
+    overlay_w -= overlay_w % 2
     margin = max(2, int(width * 0.03))
     x_expr, y_expr = _POSITIONS.get(position, _POSITIONS["bottom_right"])
     x_expr = x_expr.format(M=margin)
@@ -67,7 +68,7 @@ def apply_overlay(
     animated = ext in _ANIMATED
     shortest = ":shortest=1" if animated else ""
     filtergraph = (
-        f"[1:v]scale={overlay_w}:-1[ovr];"
+        f"[1:v]scale={overlay_w}:-2[ovr];"
         f"[0:v][ovr]overlay={x_expr}:{y_expr}{shortest}[v]"
     )
 
