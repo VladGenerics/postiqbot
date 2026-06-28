@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -22,11 +23,13 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
 
     scheduler.add_job(
         poll_sources,
-        IntervalTrigger(minutes=settings.monitor_interval_minutes),
+        IntervalTrigger(
+            minutes=settings.monitor_interval_minutes,
+            start_date=datetime.now(timezone.utc) + timedelta(seconds=20),
+        ),
         id="monitor",
         max_instances=1,
         coalesce=True,
-        next_run_time=None,
     )
 
     async def pipeline_tick() -> None:
