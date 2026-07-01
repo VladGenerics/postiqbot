@@ -84,12 +84,14 @@ async def open_subscription(message: Message, user_id: int) -> None:
         status = status_text(user, lang) if user else "—"
     rows = [
         [InlineKeyboardButton(
-            text=f"{days} дн. — {tier['rub']} ₽", callback_data=f"buy_sub:{days}"
+            text=f"{settings.tier_label(days, lang)} — {tier['rub']} ₽",
+            callback_data=f"buy_sub:{days}",
         )]
         for days, tier in settings.sub_tiers.items()
     ]
     prices = "\n".join(
-        f"• {days} дн. — <b>{tier['rub']} ₽</b> ({tier['accounts']} акк, {tier['videos']} видео)"
+        f"• {settings.tier_label(days, lang)} — <b>{tier['rub']} ₽</b> "
+        f"({tier['accounts']} акк, {tier['videos']} видео/день)"
         for days, tier in settings.sub_tiers.items()
     )
     caption = t("tariffs_caption", lang, status=status, prices=prices)
@@ -175,7 +177,8 @@ async def buy_subscription(callback: CallbackQuery) -> None:
             text=t("btn_pay_stars", lang, stars=tier["stars"]), callback_data=f"pay_stars:{days}"
         )],
     ])
-    await callback.message.answer(t("pay_choose", lang, days=days), reply_markup=kb)
+    plan = get_settings().tier_label(days, lang)
+    await callback.message.answer(t("pay_choose", lang, plan=plan), reply_markup=kb)
     await callback.answer()
 
 
@@ -186,14 +189,17 @@ async def pay_stars(callback: CallbackQuery, bot: Bot) -> None:
     if not tier:
         await callback.answer("Неверный тариф", show_alert=True)
         return
+    plan = get_settings().tier_label(days, "ru")
+    forever = days >= get_settings().forever_days
+    period = "навсегда" if forever else f"на {days} дней"
     await bot.send_invoice(
         chat_id=callback.from_user.id,
-        title=f"Подписка PostiqBot — {days} дней",
-        description=f"Доступ к авто-репостингу на {days} дней.",
+        title=f"Подписка PostiqBot — {plan}",
+        description=f"Доступ к авто-репостингу {period}.",
         payload=f"sub:{days}",
         provider_token="",
         currency="XTR",
-        prices=[LabeledPrice(label=f"Подписка {days} дн.", amount=tier["stars"])],
+        prices=[LabeledPrice(label=f"Подписка {plan}", amount=tier["stars"])],
     )
     await callback.answer()
 
@@ -212,12 +218,13 @@ async def pay_rub(callback: CallbackQuery, bot: Bot) -> None:
         return
 
     amount = tier["rub"]
+    plan = get_settings().tier_label(days, lang)
     me = await bot.get_me()
     return_url = f"https://t.me/{me.username}"
     try:
         tx_id, redirect = await platega.create_payment(
             amount=amount,
-            description=f"PostiqBot подписка {days} дней",
+            description=f"PostiqBot подписка — {plan}",
             user_id=callback.from_user.id,
             username=f"@{callback.from_user.username}" if callback.from_user.username else "",
             return_url=return_url,
@@ -238,7 +245,7 @@ async def pay_rub(callback: CallbackQuery, bot: Bot) -> None:
         [InlineKeyboardButton(text=t("btn_pay_now", lang, amount=amount), url=redirect)]
     ])
     await callback.message.answer(
-        t("pay_link", lang, amount=amount, days=days), reply_markup=kb
+        t("pay_link", lang, amount=amount, plan=plan), reply_markup=kb
     )
     await callback.answer()
 
@@ -255,13 +262,16 @@ async def on_paid(message: Message, bot: Bot) -> None:
         days = int(payload.split(":", 1)[1])
     except (IndexError, ValueError):
         days = 30
-    tier = get_settings().sub_tiers.get(days, {"accounts": 5, "videos": 300})
+    settings = get_settings()
+    tier = settings.sub_tiers.get(days, {"accounts": 5, "videos": 40})
     until = await grant_subscription(
         message.from_user.id, days, accounts=tier["accounts"], videos=tier["videos"]
     )
-    await message.answer(
-        f"✅ Оплата прошла! Подписка активна до <b>{until:%d.%m.%Y}</b>. Спасибо! 🙌"
-    )
+    if days >= settings.forever_days:
+        active = "активна <b>навсегда</b> ♾️"
+    else:
+        active = f"активна до <b>{until:%d.%m.%Y}</b>"
+    await message.answer(f"✅ Оплата прошла! Подписка {active}. Спасибо! 🙌")
     await _reward_referrer(bot, message.from_user.id)
 
 

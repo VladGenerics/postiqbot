@@ -64,8 +64,8 @@ T: dict[str, dict[str, str]] = {
         "en": "💳 <b>Plans</b>\n\n{status}\n{prices}\n\nPick a plan below 👇",
     },
     "pay_choose": {
-        "ru": "💳 Тариф на <b>{days} дней</b>. Выбери способ оплаты:",
-        "en": "💳 <b>{days}-day</b> plan. Choose a payment method:",
+        "ru": "💳 Тариф <b>{plan}</b>. Выбери способ оплаты:",
+        "en": "💳 <b>{plan}</b> plan. Choose a payment method:",
     },
     "btn_pay_stars": {"ru": "⭐ Telegram Stars ({stars})", "en": "⭐ Telegram Stars ({stars})"},
     "btn_pay_rub": {"ru": "₽ СБП / карта ({rub} ₽)", "en": "₽ Card / SBP ({rub} ₽)"},
@@ -74,8 +74,8 @@ T: dict[str, dict[str, str]] = {
         "en": "₽ Card/SBP payment is coming soon. For now use Telegram Stars (⭐) or contact «✍️ Support».",
     },
     "pay_link": {
-        "ru": "💳 Счёт на <b>{amount} ₽</b> ({days} дн.) создан.\nОплати по кнопке ниже — доступ активируется автоматически после оплаты.",
-        "en": "💳 Invoice for <b>{amount} ₽</b> ({days}d) created.\nPay via the button below — access activates automatically after payment.",
+        "ru": "💳 Счёт на <b>{amount} ₽</b> ({plan}) создан.\nОплати по кнопке ниже — доступ активируется автоматически после оплаты.",
+        "en": "💳 Invoice for <b>{amount} ₽</b> ({plan}) created.\nPay via the button below — access activates automatically after payment.",
     },
     "btn_pay_now": {"ru": "💳 Оплатить {amount} ₽", "en": "💳 Pay {amount} ₽"},
     "pay_error": {

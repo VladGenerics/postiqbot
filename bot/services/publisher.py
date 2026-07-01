@@ -19,13 +19,17 @@ from bot.db.models import (
     Connection,
     Job,
     PublishAccount,
+    User,
 )
 from bot.config import get_settings
 from bot.db.session import get_session
 from bot.services.crypto import decrypt
 from bot.services import tiktok_api, tiktok_oauth
 from bot.services.overlay import apply_overlay
-from bot.services.subscription import inc_videos_used, video_limited_users
+from bot.services.subscription import (
+    inc_videos_used,
+    published_today_by_user,
+)
 from bot.services.youtube_api import upload_video
 from bot.services.youtube_oauth import credentials_from_refresh_token
 
@@ -71,6 +75,18 @@ async def _claim_due(limit: int) -> list[_Task]:
         )
         used: dict[int, int] = dict(used_rows.all())
 
+        acc_used_rows = await session.execute(
+            select(Connection.publish_account_id, func.count(Job.id))
+            .select_from(Job)
+            .join(Connection, Connection.id == Job.connection_id)
+            .where(
+                Job.status == JOB_PUBLISHED,
+                Job.updated_at >= _start_of_day(now),
+            )
+            .group_by(Connection.publish_account_id)
+        )
+        acc_used: dict[int, int] = dict(acc_used_rows.all())
+
         candidates = list(
             await session.scalars(
                 select(Job)
@@ -86,17 +102,29 @@ async def _claim_due(limit: int) -> list[_Task]:
             )
         )
 
-        limited = await video_limited_users(
-            [j.connection.user_id for j in candidates]
-        )
+        user_ids = [j.connection.user_id for j in candidates]
+        admins = get_settings().admin_id_set
+        per_acc_limit = get_settings().per_account_daily_limit
+        user_used = await published_today_by_user(session, user_ids)
+        user_limit = {
+            u.telegram_id: u.tier_videos
+            for u in await session.scalars(
+                select(User).where(User.telegram_id.in_(user_ids))
+            )
+        }
 
         for job in candidates:
             if len(tasks) >= limit:
                 break
             conn = job.connection
-            if conn.user_id in limited:
-                continue
+            uid = conn.user_id
+            is_admin = uid in admins
             acc = conn.publish_account
+            if not is_admin:
+                if user_used.get(uid, 0) >= user_limit.get(uid, 0):
+                    continue
+                if acc_used.get(acc.id, 0) >= per_acc_limit:
+                    continue
             common = dict(
                 job_id=job.id,
                 user_id=conn.user_id,
@@ -128,6 +156,10 @@ async def _claim_due(limit: int) -> list[_Task]:
             elif acc.platform == "tiktok":
                 job.status = JOB_PUBLISHING
                 tasks.append(_Task(platform="tiktok", **common))
+            else:
+                continue
+            acc_used[acc.id] = acc_used.get(acc.id, 0) + 1
+            user_used[uid] = user_used.get(uid, 0) + 1
     return tasks
 
 

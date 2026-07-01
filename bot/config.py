@@ -47,6 +47,10 @@ class Settings(BaseSettings):
 
     daily_upload_quota: int = 6
 
+    per_account_daily_limit: int = 4
+
+    forever_days: int = 36500
+
     download_dir: str = "downloads"
 
     admin_ids: str = ""
@@ -65,14 +69,19 @@ class Settings(BaseSettings):
 
     @property
     def sub_tiers(self) -> dict[int, dict[str, int]]:
-        """{дни: {stars, rub, accounts, videos}}."""
+        """{дни: {stars, rub, accounts, videos}} — videos = лимит публикаций в ДЕНЬ."""
         return {
-            7: {"stars": 99, "rub": 159, "accounts": 2, "videos": 25},
-            14: {"stars": 199, "rub": 279, "accounts": 3, "videos": 60},
-            30: {"stars": 399, "rub": 479, "accounts": 5, "videos": 100},
-            90: {"stars": 999, "rub": 1190, "accounts": 10, "videos": 500},
-            365: {"stars": 2499, "rub": 3190, "accounts": 25, "videos": 5000},
+            7: {"stars": 60, "rub": 99, "accounts": 2, "videos": 8},
+            30: {"stars": 120, "rub": 199, "accounts": 5, "videos": 40},
+            self.forever_days: {"stars": 360, "rub": 599, "accounts": 25, "videos": 100},
         }
+
+    def tier_label(self, days: int, lang: str = "ru") -> str:
+        """Читаемое название срока тарифа (для кнопок и списка)."""
+        if days >= self.forever_days:
+            return "♾️ Навсегда" if lang == "ru" else "♾️ Forever"
+        suffix = "дн." if lang == "ru" else "d"
+        return f"📅 {days} {suffix}"
 
     @property
     def admin_id_set(self) -> set[int]:

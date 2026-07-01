@@ -6,12 +6,37 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 
 from bot.config import get_settings
-from bot.db.models import User
+from bot.db.models import JOB_PUBLISHED, Connection, Job, User
 from bot.db.session import get_session
+from sqlalchemy import func
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _start_of_day(now: datetime) -> datetime:
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+async def published_today_by_user(
+    session, telegram_ids: list[int]
+) -> dict[int, int]:
+    """{user_id: сколько видео опубликовано сегодня} — один запрос."""
+    if not telegram_ids:
+        return {}
+    rows = await session.execute(
+        select(Connection.user_id, func.count(Job.id))
+        .select_from(Job)
+        .join(Connection, Connection.id == Job.connection_id)
+        .where(
+            Job.status == JOB_PUBLISHED,
+            Job.updated_at >= _start_of_day(_now()),
+            Connection.user_id.in_(telegram_ids),
+        )
+        .group_by(Connection.user_id)
+    )
+    return dict(rows.all())
 
 
 def access_until(user: User) -> datetime | None:
@@ -85,7 +110,7 @@ async def can_add_account(telegram_id: int, current_count: int) -> tuple[bool, i
 
 
 async def video_limited_users(telegram_ids: list[int]) -> set[int]:
-    """Из списка id вернуть тех, кто исчерпал лимит видео за период (без админов)."""
+    """Из списка id вернуть тех, кто исчерпал ДНЕВНОЙ лимит видео (без админов)."""
     if not telegram_ids:
         return set()
     admins = get_settings().admin_id_set
@@ -95,10 +120,11 @@ async def video_limited_users(telegram_ids: list[int]) -> set[int]:
                 select(User).where(User.telegram_id.in_(telegram_ids))
             )
         ).all()
+        used = await published_today_by_user(session, telegram_ids)
     return {
         u.telegram_id
         for u in users
-        if u.telegram_id not in admins and u.videos_used >= u.tier_videos
+        if u.telegram_id not in admins and used.get(u.telegram_id, 0) >= u.tier_videos
     }
 
 
@@ -115,23 +141,26 @@ async def inc_videos_used(telegram_id: int) -> None:
 def status_text(user: User, lang: str = "ru") -> str:
     until = access_until(user)
     now = _now()
-    videos_left = max(0, user.tier_videos - user.videos_used)
+    forever = until is not None and (until - now).days > 3650
+    per_acc = get_settings().per_account_daily_limit
     if lang == "en":
         if until is None or until <= now:
             return "❌ Access inactive. Buy a subscription so the bot can publish."
-        days = (until - now).days
         src = "subscription" if (user.subscription_until and user.subscription_until > now) else "trial"
+        expiry = "forever ♾️" if forever else f"until <b>{until:%d.%m.%Y}</b> (~{(until - now).days}d)"
         return (
-            f"✅ Access active ({src}) until <b>{until:%d.%m.%Y}</b> (~{days}d)\n"
+            f"✅ Access active ({src}) {expiry}\n"
             f"📦 Accounts limit: <b>{user.tier_accounts}</b>\n"
-            f"🎬 Videos left: <b>{videos_left}</b> of {user.tier_videos}"
+            f"🎬 Daily limit: <b>{user.tier_videos}</b> videos/day "
+            f"(max {per_acc}/account)"
         )
     if until is None or until <= now:
         return "❌ Доступ неактивен. Оформи подписку, чтобы бот публиковал видео."
-    days = (until - now).days
     src = "подписка" if (user.subscription_until and user.subscription_until > now) else "триал"
+    expiry = "навсегда ♾️" if forever else f"до <b>{until:%d.%m.%Y}</b> (~{(until - now).days} дн.)"
     return (
-        f"✅ Доступ активен ({src}) до <b>{until:%d.%m.%Y}</b> (~{days} дн.)\n"
+        f"✅ Доступ активен ({src}) {expiry}\n"
         f"📦 Лимит аккаунтов: <b>{user.tier_accounts}</b>\n"
-        f"🎬 Видео осталось: <b>{videos_left}</b> из {user.tier_videos}"
+        f"🎬 Дневной лимит: <b>{user.tier_videos}</b> видео/день "
+        f"(до {per_acc} на аккаунт)"
     )
