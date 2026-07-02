@@ -9,6 +9,8 @@ _ASSETS = os.path.join(os.path.dirname(__file__), "assets")
 
 ICONS: dict[str, str] = {
     "start": "banner_start.png",
+    "connect": "banner_connect.png",
+    "source": "banner_source.png",
     "profile": "banner_profile.png",
     "tariffs": "banner_tariffs.png",
     "connections": "banner_connections.png",

@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 from bot.db.models import Connection, PublishAccount, SourceChannel
 from bot.db.session import get_session
 from bot.services.source_resolver import resolve_source_channel
+from bot.ui import send_with_icon
 
 router = Router(name="sources")
 
@@ -72,10 +73,10 @@ async def open_add_source(message: Message, user_id: int, state: FSMContext) -> 
     lang = await user_lang(user_id)
     accounts = await _user_accounts(user_id)
     if not accounts:
-        await message.answer(t("source_need_account", lang))
+        await send_with_icon(message, "source", t("source_need_account", lang))
         return
     await state.set_state(SourceFlow.waiting_link)
-    await message.answer(t("source_prompt", lang))
+    await send_with_icon(message, "source", t("source_prompt", lang))
 
 
 @router.callback_query(F.data == "add_source")

@@ -20,6 +20,7 @@ from bot.services.oauth_state import encode_simple_state, encode_state
 from bot.services.projects import ensure_shared_project, pick_project
 from bot.services.subscription import can_add_account
 from bot.services.tiktok_oauth import build_auth_url as tiktok_auth_url
+from bot.ui import send_with_icon
 from bot.services.youtube_oauth import build_auth_url
 
 router = Router(name="accounts")
@@ -91,7 +92,7 @@ async def open_connect_menu(message: Message, telegram_id: int) -> None:
         [InlineKeyboardButton(text=t("youtube", lang), callback_data="connect_youtube")],
         [InlineKeyboardButton(text=t("tiktok", lang), callback_data="connect_tiktok")],
     ])
-    await message.answer(t("choose_platform", lang), reply_markup=kb)
+    await send_with_icon(message, "connect", t("choose_platform", lang), reply_markup=kb)
 
 
 @router.callback_query(F.data == "connect_youtube")
