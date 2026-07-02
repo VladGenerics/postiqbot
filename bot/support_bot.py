@@ -32,7 +32,9 @@ def support_username() -> str:
 
 @router.message(Command("chatid"))
 async def chat_id(message: Message) -> None:
-    """Показать id чата/темы — чтобы узнать SUPPORT_GROUP_ID."""
+    """Показать id чата/темы — чтобы узнать SUPPORT_GROUP_ID. Только для админов."""
+    if not message.from_user or message.from_user.id not in get_settings().admin_id_set:
+        return
     thread = f"\nthread_id: <code>{message.message_thread_id}</code>" if message.message_thread_id else ""
     await message.reply(
         f"chat_id: <code>{message.chat.id}</code>{thread}", parse_mode="HTML"
