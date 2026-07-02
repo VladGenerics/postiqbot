@@ -23,6 +23,7 @@ from bot.db.models import (
 )
 from bot.config import get_settings
 from bot.db.session import get_session
+from bot.i18n import t, user_lang
 from bot.services.crypto import decrypt
 from bot.services import tiktok_api, tiktok_oauth
 from bot.services.overlay import apply_overlay
@@ -220,16 +221,10 @@ async def _prepare_path(bot: Bot, task: _Task) -> tuple[str, list[str]]:
     return overlaid, [overlay_tmp, overlaid]
 
 
-def _success_msg(task: _Task, remote_id: str) -> str:
+def _success_msg(task: _Task, remote_id: str, lang: str) -> str:
     if task.platform == "youtube":
-        return (
-            f"✅ Видео опубликовано: https://youtu.be/{remote_id}\n"
-            f"<i>{task.title}</i> (доступ: {task.privacy})"
-        )
-    return (
-        f"✅ Видео отправлено в черновики TikTok: <i>{task.title}</i>\n"
-        "Открой приложение TikTok → Профиль → Черновики → опубликуй."
-    )
+        return t("pub_yt_ok", lang, id=remote_id, title=task.title, privacy=task.privacy)
+    return t("pub_tt_ok", lang, title=task.title)
 
 
 async def process_scheduled(bot: Bot, limit: int = 3) -> int:
@@ -237,6 +232,7 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
     published = 0
     for task in await _claim_due(limit):
         extra_files: list[str] = []
+        lang = await user_lang(task.user_id)
         try:
             publish_path, extra_files = await _prepare_path(bot, task)
             remote_id = await _publish(task, publish_path)
@@ -244,11 +240,11 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
             await inc_videos_used(task.user_id)
             published += 1
             logger.info("Опубликовано job=%d (%s) → %s", task.job_id, task.platform, remote_id)
-            await _notify(bot, task.user_id, _success_msg(task, remote_id))
+            await _notify(bot, task.user_id, _success_msg(task, remote_id, lang))
         except Exception as exc:  # noqa: BLE001
             logger.exception("Ошибка публикации job=%d", task.job_id)
             await _finalize(task.job_id, remote_id=None, error=str(exc))
-            await _notify(bot, task.user_id, f"❌ Не удалось опубликовать «{task.title}»: {exc}")
+            await _notify(bot, task.user_id, t("pub_fail", lang, title=task.title, error=str(exc)))
         finally:
             _cleanup(task.local_path)
             for f in extra_files:

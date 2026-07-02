@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from bot.db.models import Connection, PublishAccount, SourceChannel
 from bot.db.session import get_session
+from bot.i18n import t, user_lang
 from bot.services.source_resolver import resolve_source_channel
 from bot.ui import send_with_icon
 
@@ -87,12 +88,10 @@ async def add_source(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(SourceFlow.waiting_link)
 async def got_link(message: Message, state: FSMContext) -> None:
+    lang = await user_lang(message.from_user.id)
     resolved = await resolve_source_channel(message.text or "")
     if resolved is None:
-        await message.answer(
-            "❌ Не получилось распознать канал. Проверь ссылку и пришли ещё раз.\n"
-            "Для TikTok пришли полную ссылку на профиль (https://www.tiktok.com/@...)."
-        )
+        await message.answer(t("src_bad_link", lang))
         return
     platform, channel_id, title = resolved
     source_id = await _get_or_create_source(platform, channel_id, title)
@@ -114,18 +113,16 @@ async def got_link(message: Message, state: FSMContext) -> None:
             for a in accounts
         ]
     )
-    await message.answer(
-        f"Источник <b>{title}</b> распознан.\nНа какой свой канал публиковать?",
-        reply_markup=kb,
-    )
+    await message.answer(t("src_choose_dest", lang, title=title), reply_markup=kb)
 
 
 @router.callback_query(SourceFlow.waiting_account, F.data.startswith("src_dest:"))
 async def chose_account(callback: CallbackQuery, state: FSMContext) -> None:
     account_id = int(callback.data.split(":", 1)[1])
+    lang = await user_lang(callback.from_user.id)
     data = await state.get_data()
     source_id = data["source_id"]
-    title = data.get("source_title", "канал")
+    title = data.get("source_title", t("src_default_title", lang))
     await _finish(callback.message, state, account_id, source_id, title)
     await callback.answer()
 
@@ -137,12 +134,10 @@ async def _finish(
     source_id: int,
     title: str,
 ) -> None:
+    lang = await user_lang(message.chat.id)
     created = await _create_connection(message.chat.id, account_id, source_id)
     await state.clear()
     if created:
-        await message.answer(
-            f"✅ Источник <b>{title}</b> подключён.\n"
-            "Как только там появится новое видео — я заберу его и опубликую к тебе."
-        )
+        await message.answer(t("src_connected", lang, title=title))
     else:
-        await message.answer("ℹ️ Такая связка уже существует.")
+        await message.answer(t("src_exists", lang))

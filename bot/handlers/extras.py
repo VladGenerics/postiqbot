@@ -160,11 +160,11 @@ async def documents_menu(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith("buy_sub:"))
 async def buy_subscription(callback: CallbackQuery) -> None:
     days = int(callback.data.split(":", 1)[1])
+    lang = await user_lang(callback.from_user.id)
     tier = get_settings().sub_tiers.get(days)
     if not tier:
-        await callback.answer("Неверный тариф", show_alert=True)
+        await callback.answer(t("bad_tariff", lang), show_alert=True)
         return
-    lang = await user_lang(callback.from_user.id)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text=t("btn_pay_rub", lang, rub=tier["rub"]), callback_data=f"pay_rub:{days}"
@@ -181,21 +181,22 @@ async def buy_subscription(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith("pay_stars:"))
 async def pay_stars(callback: CallbackQuery, bot: Bot) -> None:
     days = int(callback.data.split(":", 1)[1])
+    lang = await user_lang(callback.from_user.id)
     tier = get_settings().sub_tiers.get(days)
     if not tier:
-        await callback.answer("Неверный тариф", show_alert=True)
+        await callback.answer(t("bad_tariff", lang), show_alert=True)
         return
-    plan = get_settings().tier_label(days, "ru")
+    plan = get_settings().tier_label(days, lang)
     forever = days >= get_settings().forever_days
-    period = "навсегда" if forever else f"на {days} дней"
+    period = t("inv_period_forever", lang) if forever else t("inv_period_days", lang, days=days)
     await bot.send_invoice(
         chat_id=callback.from_user.id,
-        title=f"Подписка PostiqBot — {plan}",
-        description=f"Доступ к авто-репостингу {period}.",
+        title=t("inv_title", lang, plan=plan),
+        description=t("inv_desc", lang, period=period),
         payload=f"sub:{days}",
         provider_token="",
         currency="XTR",
-        prices=[LabeledPrice(label=f"Подписка {plan}", amount=tier["stars"])],
+        prices=[LabeledPrice(label=t("inv_label", lang, plan=plan), amount=tier["stars"])],
     )
     await callback.answer()
 
@@ -206,7 +207,7 @@ async def pay_rub(callback: CallbackQuery, bot: Bot) -> None:
     tier = get_settings().sub_tiers.get(days)
     lang = await user_lang(callback.from_user.id)
     if not tier:
-        await callback.answer("Неверный тариф", show_alert=True)
+        await callback.answer(t("bad_tariff", lang), show_alert=True)
         return
     if not platega.is_configured():
         await callback.message.answer(t("rub_soon", lang))
@@ -263,11 +264,12 @@ async def on_paid(message: Message, bot: Bot) -> None:
     until = await grant_subscription(
         message.from_user.id, days, accounts=tier["accounts"], videos=tier["videos"]
     )
+    lang = await user_lang(message.from_user.id)
     if days >= settings.forever_days:
-        active = "активна <b>навсегда</b> ♾️"
+        active = t("paid_forever", lang)
     else:
-        active = f"активна до <b>{until:%d.%m.%Y}</b>"
-    await message.answer(f"✅ Оплата прошла! Подписка {active}. Спасибо! 🙌")
+        active = t("paid_until", lang, date=f"{until:%d.%m.%Y}")
+    await message.answer(t("paid_ok", lang, active=active))
     await _reward_referrer(bot, message.from_user.id)
 
 
@@ -286,11 +288,11 @@ async def _reward_referrer(bot: Bot, payer_id: int) -> None:
         payer.referral_rewarded = True
         referrer_id = payer.referred_by
     until = await grant_subscription(referrer_id, settings.referral_bonus_days)
+    lang = await user_lang(referrer_id)
     try:
         await bot.send_message(
             referrer_id,
-            f"🎁 Твой приглашённый оформил подписку — тебе <b>+{settings.referral_bonus_days} дней</b>!\n"
-            f"Доступ активен до <b>{until:%d.%m.%Y}</b>.",
+            t("ref_reward", lang, days=settings.referral_bonus_days, date=f"{until:%d.%m.%Y}"),
         )
     except Exception:  # noqa: BLE001
         pass
@@ -344,7 +346,7 @@ async def support_start(callback: CallbackQuery, state: FSMContext) -> None:
 async def support_forward(message: Message, state: FSMContext, bot: Bot) -> None:
     await state.clear()
     if not message.text:
-        await message.answer("Пришли текстом, пожалуйста.")
+        await message.answer(t("support_send_text", await user_lang(message.from_user.id)))
         return
     sent = False
     for admin_id in get_settings().admin_id_set:

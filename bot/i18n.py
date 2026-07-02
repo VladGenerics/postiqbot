@@ -289,6 +289,252 @@ T: dict[str, dict[str, str]] = {
             "👥 Invited: <b>{invited}</b>\n💳 Paid (bonus granted): <b>{paid}</b>"
         ),
     },
+    "c_active": {"ru": "🟢 активна", "en": "🟢 active"},
+    "c_paused": {"ru": "⏸ на паузе", "en": "⏸ paused"},
+    "c_sched_interval": {"ru": "⏱ каждые {n} мин", "en": "⏱ every {n} min"},
+    "c_sched_times": {"ru": "🕐 в {times} ({tz})", "en": "🕐 at {times} ({tz})"},
+    "c_sched_now": {"ru": "⚡ сразу", "en": "⚡ immediately"},
+    "c_ovl_on": {"ru": "вкл ({pos}, {scale}%)", "en": "on ({pos}, {scale}%)"},
+    "c_ovl_off": {"ru": "выкл", "en": "off"},
+    "c_priv_private": {"ru": "🔒 приватное", "en": "🔒 private"},
+    "c_priv_unlisted": {"ru": "🔗 по ссылке", "en": "🔗 unlisted"},
+    "c_priv_public": {"ru": "🌍 публичное", "en": "🌍 public"},
+    "c_card": {
+        "ru": (
+            "<b>Связка #{id}</b>\n\n"
+            "📡 Источник: <b>{src}</b>\n"
+            "📤 Публикую на: <b>{dst}</b>\n"
+            "👁 Доступ публикаций: {priv}\n"
+            "⏰ Расписание: {sched}\n"
+            "🖼 Оверлей: {ovl}\n"
+            "⚙️ Статус: {status}"
+        ),
+        "en": (
+            "<b>Connection #{id}</b>\n\n"
+            "📡 Source: <b>{src}</b>\n"
+            "📤 Publishing to: <b>{dst}</b>\n"
+            "👁 Visibility: {priv}\n"
+            "⏰ Schedule: {sched}\n"
+            "🖼 Overlay: {ovl}\n"
+            "⚙️ Status: {status}"
+        ),
+    },
+    "c_btn_pause": {"ru": "⏸ Поставить на паузу", "en": "⏸ Pause"},
+    "c_btn_resume": {"ru": "▶️ Возобновить", "en": "▶️ Resume"},
+    "c_btn_visibility": {"ru": "👁 Доступ: {priv}", "en": "👁 Visibility: {priv}"},
+    "c_btn_schedule": {"ru": "⏰ Расписание: {sched}", "en": "⏰ Schedule: {sched}"},
+    "c_btn_overlay": {"ru": "🖼 Оверлей: {ovl}", "en": "🖼 Overlay: {ovl}"},
+    "c_btn_delete": {"ru": "🗑 Удалить", "en": "🗑 Delete"},
+    "c_btn_to_list": {"ru": "« К списку", "en": "« Back to list"},
+    "c_btn_back": {"ru": "« Назад", "en": "« Back"},
+    "c_btn_cancel": {"ru": "« Отмена", "en": "« Cancel"},
+    "c_btn_del_yes": {"ru": "🗑 Да, удалить", "en": "🗑 Yes, delete"},
+    "c_not_found": {"ru": "Связка не найдена", "en": "Connection not found"},
+    "c_not_found_dot": {"ru": "Связка не найдена.", "en": "Connection not found."},
+    "c_resumed": {"ru": "Возобновлено", "en": "Resumed"},
+    "c_paused_toast": {"ru": "Поставлено на паузу", "en": "Paused"},
+    "c_del_confirm": {
+        "ru": (
+            "Удалить эту связку? Новые видео из источника публиковаться не будут.\n"
+            "<i>Уже опубликованные видео останутся на твоём канале.</i>"
+        ),
+        "en": (
+            "Delete this connection? New videos from the source won't be published.\n"
+            "<i>Already published videos stay on your channel.</i>"
+        ),
+    },
+    "c_deleted": {"ru": "🗑 Связка удалена.", "en": "🗑 Connection deleted."},
+    "c_deleted_toast": {"ru": "Удалено", "en": "Deleted"},
+    "c_sched_menu": {
+        "ru": (
+            "⏰ <b>Расписание публикаций</b>\n\n"
+            "• <b>Сразу</b> — публиковать как только видео скачано\n"
+            "• <b>Интервал</b> — не чаще раза в N минут (растягивает очередь)\n"
+            "• <b>По времени</b> — в заданные часы дня"
+        ),
+        "en": (
+            "⏰ <b>Publishing schedule</b>\n\n"
+            "• <b>Immediately</b> — publish as soon as the video is downloaded\n"
+            "• <b>Interval</b> — no more than once every N minutes (spreads the queue)\n"
+            "• <b>Times</b> — at set hours of the day"
+        ),
+    },
+    "c_sched_btn_now": {"ru": "⚡ Сразу", "en": "⚡ Immediately"},
+    "c_sched_btn_int": {"ru": "⏱ Интервал", "en": "⏱ Interval"},
+    "c_sched_btn_times": {"ru": "🕐 По времени", "en": "🕐 Times"},
+    "c_sched_now_toast": {"ru": "Публикую сразу", "en": "Publishing immediately"},
+    "c_int_prompt": {
+        "ru": "Пришли интервал между публикациями в <b>минутах</b> (например <code>120</code> = раз в 2 часа).",
+        "en": "Send the interval between posts in <b>minutes</b> (e.g. <code>120</code> = once every 2 hours).",
+    },
+    "c_int_bad": {
+        "ru": "Нужно положительное число минут. Попробуй ещё раз.",
+        "en": "Need a positive number of minutes. Try again.",
+    },
+    "c_times_prompt": {
+        "ru": (
+            "Пришли времена публикаций через запятую в формате ЧЧ:ММ.\n"
+            "Можно добавить таймзону.\n\n"
+            "Примеры:\n<code>10:00, 15:00, 19:30</code>\n"
+            "<code>09:00, 21:00 Europe/Moscow</code>"
+        ),
+        "en": (
+            "Send posting times separated by commas in HH:MM format.\n"
+            "You can add a timezone.\n\n"
+            "Examples:\n<code>10:00, 15:00, 19:30</code>\n"
+            "<code>09:00, 21:00 Europe/Moscow</code>"
+        ),
+    },
+    "c_times_bad": {
+        "ru": "Не нашёл корректных времён. Формат: <code>10:00, 15:00</code>",
+        "en": "No valid times found. Format: <code>10:00, 15:00</code>",
+    },
+    "c_ovl_text": {
+        "ru": (
+            "🖼 <b>Оверлей</b> — картинка/GIF поверх видео.\n\n"
+            "Выбери <b>позицию</b> (сетка) и <b>размер</b> (% ширины).\n"
+            "Текущая позиция отмечена точкой."
+        ),
+        "en": (
+            "🖼 <b>Overlay</b> — an image/GIF on top of the video.\n\n"
+            "Pick a <b>position</b> (grid) and <b>size</b> (% of width).\n"
+            "The current position is marked with a dot."
+        ),
+    },
+    "c_ovl_hint": {
+        "ru": (
+            "⚠️ <b>Если у фото прозрачный фон</b> (PNG без фона) — отправь его "
+            "<b>как ДОКУМЕНТ/Файл</b>, а не как обычное фото!\n\n"
+            "Как отправить файлом:\n"
+            "📎 Скрепка → <b>Файл</b> → выбери своё PNG → отправить.\n\n"
+            "Если отправить как «Фото», Telegram сожмёт его в JPEG и "
+            "<b>прозрачность пропадёт</b> — фон станет белым."
+        ),
+        "en": (
+            "⚠️ <b>If your image has a transparent background</b> (PNG) — send it "
+            "<b>as a DOCUMENT/File</b>, not as a regular photo!\n\n"
+            "How to send as a file:\n"
+            "📎 Attach → <b>File</b> → choose your PNG → send.\n\n"
+            "If sent as a “Photo”, Telegram compresses it to JPEG and "
+            "<b>transparency is lost</b> — the background turns white."
+        ),
+    },
+    "c_ovl_btn_replace": {"ru": "🔁 Заменить", "en": "🔁 Replace"},
+    "c_ovl_btn_remove": {"ru": "🗑 Убрать", "en": "🗑 Remove"},
+    "c_ovl_prompt": {
+        "ru": "Пришли <b>картинку</b>, <b>GIF</b> или стикер — наложу её на каждое видео этой связки.\n\n",
+        "en": "Send an <b>image</b>, <b>GIF</b> or sticker — I'll overlay it on every video of this connection.\n\n",
+    },
+    "c_ovl_prompt_replace": {
+        "ru": "Пришли новую картинку/GIF для оверлея.\n\n",
+        "en": "Send a new image/GIF for the overlay.\n\n",
+    },
+    "c_ovl_not_image": {
+        "ru": "Это не картинка. Пришли фото, GIF, документ-изображение или стикер.",
+        "en": "That's not an image. Send a photo, GIF, image document or sticker.",
+    },
+    "c_ovl_saved": {
+        "ru": "✅ Картинка сохранена. Вот как ляжет — настрой позицию и размер:",
+        "en": "✅ Image saved. Here's how it looks — adjust the position and size:",
+    },
+    "c_ovl_pos_toast": {"ru": "Позиция обновлена", "en": "Position updated"},
+    "c_ovl_scale_toast": {"ru": "Размер обновлён", "en": "Size updated"},
+    "c_ovl_removed_toast": {"ru": "Оверлей убран", "en": "Overlay removed"},
+    "c_not_found_short": {"ru": "Не найдено", "en": "Not found"},
+    "src_bad_link": {
+        "ru": (
+            "❌ Не получилось распознать канал. Проверь ссылку и пришли ещё раз.\n"
+            "Для TikTok пришли полную ссылку на профиль (https://www.tiktok.com/@...)."
+        ),
+        "en": (
+            "❌ Couldn't recognize the channel. Check the link and send it again.\n"
+            "For TikTok, send the full profile link (https://www.tiktok.com/@...)."
+        ),
+    },
+    "src_choose_dest": {
+        "ru": "Источник <b>{title}</b> распознан.\nНа какой свой канал публиковать?",
+        "en": "Source <b>{title}</b> recognized.\nWhich of your channels should I publish to?",
+    },
+    "src_connected": {
+        "ru": (
+            "✅ Источник <b>{title}</b> подключён.\n"
+            "Как только там появится новое видео — я заберу его и опубликую к тебе."
+        ),
+        "en": (
+            "✅ Source <b>{title}</b> connected.\n"
+            "As soon as a new video appears there, I'll grab it and publish it for you."
+        ),
+    },
+    "src_exists": {
+        "ru": "ℹ️ Такая связка уже существует.",
+        "en": "ℹ️ This connection already exists.",
+    },
+    "src_default_title": {"ru": "канал", "en": "channel"},
+    "acc_no_project": {
+        "ru": (
+            "⚠️ Нет доступных Google-проектов в пуле. "
+            "Админу нужно добавить проект командой /addproject."
+        ),
+        "en": (
+            "⚠️ No available Google projects in the pool. "
+            "The admin needs to add one via /addproject."
+        ),
+    },
+    "acc_tiktok_off": {
+        "ru": "⚠️ TikTok пока не настроен на сервере.",
+        "en": "⚠️ TikTok isn't configured on the server yet.",
+    },
+    "bad_tariff": {"ru": "Неверный тариф", "en": "Invalid plan"},
+    "support_send_text": {"ru": "Пришли текстом, пожалуйста.", "en": "Please send it as text."},
+    "paid_forever": {"ru": "активна <b>навсегда</b> ♾️", "en": "active <b>forever</b> ♾️"},
+    "paid_until": {"ru": "активна до <b>{date}</b>", "en": "active until <b>{date}</b>"},
+    "paid_ok": {
+        "ru": "✅ Оплата прошла! Подписка {active}. Спасибо! 🙌",
+        "en": "✅ Payment succeeded! Subscription {active}. Thank you! 🙌",
+    },
+    "pay_received": {
+        "ru": "✅ Оплата получена! Подписка активна до <b>{date}</b>. Спасибо! 🙌",
+        "en": "✅ Payment received! Subscription active until <b>{date}</b>. Thank you! 🙌",
+    },
+    "ref_reward": {
+        "ru": (
+            "🎁 Твой приглашённый оформил подписку — тебе <b>+{days} дней</b>!\n"
+            "Доступ активен до <b>{date}</b>."
+        ),
+        "en": (
+            "🎁 Your referral bought a subscription — you get <b>+{days} days</b>!\n"
+            "Access is active until <b>{date}</b>."
+        ),
+    },
+    "pub_yt_ok": {
+        "ru": (
+            "✅ Видео опубликовано: https://youtu.be/{id}\n"
+            "<i>{title}</i> (доступ: {privacy})"
+        ),
+        "en": (
+            "✅ Video published: https://youtu.be/{id}\n"
+            "<i>{title}</i> (visibility: {privacy})"
+        ),
+    },
+    "pub_tt_ok": {
+        "ru": (
+            "✅ Видео отправлено в черновики TikTok: <i>{title}</i>\n"
+            "Открой приложение TikTok → Профиль → Черновики → опубликуй."
+        ),
+        "en": (
+            "✅ Video sent to TikTok drafts: <i>{title}</i>\n"
+            "Open TikTok → Profile → Drafts → publish it."
+        ),
+    },
+    "pub_fail": {
+        "ru": "❌ Не удалось опубликовать «{title}»: {error}",
+        "en": "❌ Couldn't publish «{title}»: {error}",
+    },
+    "inv_title": {"ru": "Подписка PostiqBot — {plan}", "en": "PostiqBot subscription — {plan}"},
+    "inv_desc": {"ru": "Доступ к авто-репостингу {period}.", "en": "Auto-reposting access {period}."},
+    "inv_period_forever": {"ru": "навсегда", "en": "forever"},
+    "inv_period_days": {"ru": "на {days} дней", "en": "for {days} days"},
+    "inv_label": {"ru": "Подписка {plan}", "en": "Subscription {plan}"},
 }
 
 

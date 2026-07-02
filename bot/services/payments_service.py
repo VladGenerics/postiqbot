@@ -10,6 +10,7 @@ from sqlalchemy import select, update
 from bot.config import get_settings
 from bot.db.models import PAY_PAID, PAY_PENDING, Payment
 from bot.db.session import get_session
+from bot.i18n import t, user_lang
 from bot.services import platega
 from bot.services.subscription import grant_subscription
 
@@ -42,9 +43,10 @@ async def finalize_payment(bot: Bot, payment_id: int) -> bool:
         payment.user_id, payment.days, accounts=tier["accounts"], videos=tier["videos"]
     )
     try:
+        lang = await user_lang(payment.user_id)
         await bot.send_message(
             payment.user_id,
-            f"✅ Оплата получена! Подписка активна до <b>{until:%d.%m.%Y}</b>. Спасибо! 🙌",
+            t("pay_received", lang, date=f"{until:%d.%m.%Y}"),
         )
     except Exception:  # noqa: BLE001
         pass

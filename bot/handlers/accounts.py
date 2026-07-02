@@ -51,10 +51,7 @@ async def open_connect_youtube(message: Message, telegram_id: int) -> None:
         await session.flush()
         project = await pick_project(session, owner_telegram_id=telegram_id)
         if project is None:
-            await message.answer(
-                "⚠️ Нет доступных Google-проектов в пуле. "
-                "Админу нужно добавить проект командой /addproject."
-            )
+            await message.answer(t("acc_no_project", lang))
             return
         client_id = project.client_id
         client_secret = decrypt(project.client_secret_enc)
@@ -71,7 +68,7 @@ async def open_connect_tiktok(message: Message, telegram_id: int) -> None:
     settings = get_settings()
     lang = await user_lang(telegram_id)
     if not settings.tiktok_client_key:
-        await message.answer("⚠️ TikTok пока не настроен на сервере.")
+        await message.answer(t("acc_tiktok_off", lang))
         return
     await ensure_user(telegram_id)
     limit = await _account_limit_reached(telegram_id)
