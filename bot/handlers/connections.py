@@ -157,11 +157,11 @@ async def open_connections(message: Message, user_id: int) -> None:
     lang = await user_lang(user_id)
     connections = await _load_connections(user_id)
     if not connections:
-        await send_with_icon(message, "connections", t("mylist_empty", lang))
+        await send_with_icon(message, "connections", t("mylist_empty", lang), lang=lang)
         return
     await send_with_icon(
         message, "connections", t("mylist_title", lang),
-        reply_markup=_list_markup(connections),
+        reply_markup=_list_markup(connections), lang=lang,
     )
 
 

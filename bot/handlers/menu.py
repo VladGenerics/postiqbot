@@ -190,7 +190,7 @@ async def open_menu(message: Message, user_id: int, screen: str = "root",
     await ensure_user(user_id)
     lang = await user_lang(user_id)
     icon, caption, kb = await _build(screen, user_id, lang, bot or message.bot)
-    await show_screen(message, icon, caption, kb, edit=edit)
+    await show_screen(message, icon, caption, kb, edit=edit, lang=lang)
 
 
 async def _enter_addsrc(message: Message, state: FSMContext, user_id: int, lang: str) -> None:
@@ -199,10 +199,10 @@ async def _enter_addsrc(message: Message, state: FSMContext, user_id: int, lang:
     accounts = await _user_accounts(user_id)
     kb = InlineKeyboardMarkup(inline_keyboard=[_back("newconn", lang)])
     if not accounts:
-        await show_screen(message, "source", t("source_need_account", lang), kb, edit=True)
+        await show_screen(message, "source", t("source_need_account", lang), kb, edit=True, lang=lang)
         return
     await state.set_state(SourceFlow.waiting_link)
-    await show_screen(message, "source", t("source_prompt", lang), kb, edit=True)
+    await show_screen(message, "source", t("source_prompt", lang), kb, edit=True, lang=lang)
 
 
 async def _enter_support(message: Message, state: FSMContext, lang: str) -> None:
@@ -210,7 +210,7 @@ async def _enter_support(message: Message, state: FSMContext, lang: str) -> None
 
     await state.set_state(SupportFlow.waiting_message)
     kb = InlineKeyboardMarkup(inline_keyboard=[_back("root", lang)])
-    await show_screen(message, "support", t("support_prompt", lang), kb, edit=True)
+    await show_screen(message, "support", t("support_prompt", lang), kb, edit=True, lang=lang)
 
 
 async def _show_mylist(message: Message, user_id: int, lang: str) -> None:
@@ -219,12 +219,12 @@ async def _show_mylist(message: Message, user_id: int, lang: str) -> None:
     connections = await _load_connections(user_id)
     if not connections:
         kb = InlineKeyboardMarkup(inline_keyboard=[_back("connections", lang)])
-        await show_screen(message, "connections", t("mylist_empty", lang), kb, edit=True)
+        await show_screen(message, "connections", t("mylist_empty", lang), kb, edit=True, lang=lang)
         return
     rows = list(_list_markup(connections).inline_keyboard)
     rows.append(_back("connections", lang))
     await show_screen(message, "connections", t("mylist_title", lang),
-                      InlineKeyboardMarkup(inline_keyboard=rows), edit=True)
+                      InlineKeyboardMarkup(inline_keyboard=rows), edit=True, lang=lang)
 
 
 @router.callback_query(F.data.startswith("nav:"))
@@ -255,5 +255,5 @@ async def on_nav(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
         return
 
     icon, caption, kb = await _build(screen, user_id, lang, bot)
-    await show_screen(message, icon, caption, kb, edit=True)
+    await show_screen(message, icon, caption, kb, edit=True, lang=lang)
     await callback.answer()

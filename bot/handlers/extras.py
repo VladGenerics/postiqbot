@@ -59,7 +59,7 @@ _GUIDE = (
 
 async def open_guide(message: Message, user_id: int) -> None:
     lang = await user_lang(user_id)
-    await send_with_icon(message, "guide", t("guide", lang))
+    await send_with_icon(message, "guide", t("guide", lang), lang=lang)
 
 
 @router.callback_query(F.data == "guide")
@@ -93,7 +93,7 @@ async def open_subscription(message: Message, user_id: int) -> None:
     caption = t("tariffs_caption", lang, status=status, prices=prices)
     await send_with_icon(
         message, "tariffs", caption,
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows), lang=lang,
     )
 
 
@@ -129,7 +129,7 @@ async def open_profile(message: Message, user_id: int) -> None:
     await send_with_icon(
         message, "profile",
         t("profile_body", lang, status=status, accounts=accounts or 0,
-          connections=connections or 0, invited=invited or 0),
+          connections=connections or 0, invited=invited or 0), lang=lang,
     )
 
 
@@ -148,7 +148,7 @@ async def open_documents(message: Message, user_id: int) -> None:
         [InlineKeyboardButton(text=t("btn_privacy", lang), url=s.privacy_url)],
         [InlineKeyboardButton(text=t("btn_terms", lang), url=s.terms_url)],
     ])
-    await send_with_icon(message, "documents", text, reply_markup=kb)
+    await send_with_icon(message, "documents", text, reply_markup=kb, lang=lang)
 
 
 @router.callback_query(F.data == "documents")
@@ -316,7 +316,7 @@ async def open_referral(message: Message, bot: Bot, user_id: int) -> None:
     await send_with_icon(
         message, "referral",
         t("referral", lang, bonus=settings.referral_bonus_days, link=link,
-          invited=invited or 0, paid=paid or 0),
+          invited=invited or 0, paid=paid or 0), lang=lang,
     )
 
 
@@ -333,7 +333,7 @@ class SupportFlow(StatesGroup):
 async def open_support(message: Message, state: FSMContext, user_id: int) -> None:
     lang = await user_lang(user_id)
     await state.set_state(SupportFlow.waiting_message)
-    await send_with_icon(message, "support", t("support_prompt", lang))
+    await send_with_icon(message, "support", t("support_prompt", lang), lang=lang)
 
 
 @router.callback_query(F.data == "support")

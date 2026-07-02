@@ -89,7 +89,7 @@ async def open_connect_menu(message: Message, telegram_id: int) -> None:
         [InlineKeyboardButton(text=t("youtube", lang), callback_data="connect_youtube")],
         [InlineKeyboardButton(text=t("tiktok", lang), callback_data="connect_tiktok")],
     ])
-    await send_with_icon(message, "connect", t("choose_platform", lang), reply_markup=kb)
+    await send_with_icon(message, "connect", t("choose_platform", lang), reply_markup=kb, lang=lang)
 
 
 @router.callback_query(F.data == "connect_youtube")

@@ -74,10 +74,10 @@ async def open_add_source(message: Message, user_id: int, state: FSMContext) -> 
     lang = await user_lang(user_id)
     accounts = await _user_accounts(user_id)
     if not accounts:
-        await send_with_icon(message, "source", t("source_need_account", lang))
+        await send_with_icon(message, "source", t("source_need_account", lang), lang=lang)
         return
     await state.set_state(SourceFlow.waiting_link)
-    await send_with_icon(message, "source", t("source_prompt", lang))
+    await send_with_icon(message, "source", t("source_prompt", lang), lang=lang)
 
 
 @router.callback_query(F.data == "add_source")

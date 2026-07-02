@@ -67,7 +67,7 @@ async def nav_more(message: Message, state: FSMContext) -> None:
         [InlineKeyboardButton(text=label("support", lang), callback_data="support")],
         [InlineKeyboardButton(text=label("lang", lang), callback_data="toggle_lang")],
     ])
-    await send_with_icon(message, "more", t("more_title", lang), reply_markup=kb)
+    await send_with_icon(message, "more", t("more_title", lang), reply_markup=kb, lang=lang)
 
 
 @router.callback_query(F.data == "toggle_lang")
@@ -75,7 +75,7 @@ async def cb_toggle_lang(callback) -> None:
     new = "en" if (await user_lang(callback.from_user.id)) == "ru" else "ru"
     await set_user_lang(callback.from_user.id, new)
     await send_with_icon(
-        callback.message, "lang", t("lang_switched", new), reply_markup=main_reply_kb(new)
+        callback.message, "lang", t("lang_switched", new), reply_markup=main_reply_kb(new), lang=new
     )
     await callback.answer()
 
