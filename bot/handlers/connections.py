@@ -22,6 +22,7 @@ from bot.config import get_settings
 from bot.db.models import Connection
 from bot.db.session import get_session
 from bot.services.overlay import make_preview
+from bot.ui import send_with_icon
 
 router = Router(name="connections")
 
@@ -156,11 +157,13 @@ def _card_markup(conn: Connection) -> InlineKeyboardMarkup:
 async def open_connections(message: Message, user_id: int) -> None:
     connections = await _load_connections(user_id)
     if not connections:
-        await message.answer(
-            "У тебя пока нет связок. Подключи канал и добавь источник 👇"
+        await send_with_icon(
+            message, "connections",
+            "У тебя пока нет связок. Подключи канал и добавь источник 👇",
         )
         return
-    await message.answer(
+    await send_with_icon(
+        message, "connections",
         "📋 <b>Твои связки</b> (источник → твой канал).\nВыбери, чтобы настроить:",
         reply_markup=_list_markup(connections),
     )

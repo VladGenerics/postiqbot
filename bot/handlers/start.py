@@ -13,6 +13,7 @@ from bot.db.models import User
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.keyboards.menus import main_reply_kb
+from bot.ui import send_with_icon
 
 router = Router(name="start")
 
@@ -55,4 +56,6 @@ async def cmd_start(message: Message, command: CommandObject) -> None:
     referred_by = await _parse_referrer(command, message.from_user.id)
     await ensure_user(message.from_user.id, referred_by=referred_by)
     lang = await user_lang(message.from_user.id)
-    await message.answer(t("welcome", lang), reply_markup=main_reply_kb(lang))
+    await send_with_icon(
+        message, "start", t("welcome", lang), reply_markup=main_reply_kb(lang)
+    )

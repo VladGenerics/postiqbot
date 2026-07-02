@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 
 from aiogram import Bot, F, Router
@@ -10,7 +9,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     CallbackQuery,
-    FSInputFile,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     LabeledPrice,
@@ -25,6 +23,7 @@ from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.i18n import t, user_lang
 from bot.services import platega
+from bot.ui import send_with_icon
 from bot.services.subscription import grant_subscription, status_text
 
 logger = logging.getLogger("postiqbot.extras")
@@ -60,16 +59,13 @@ _GUIDE = (
 
 async def open_guide(message: Message, user_id: int) -> None:
     lang = await user_lang(user_id)
-    await message.answer(t("guide", lang))
+    await send_with_icon(message, "guide", t("guide", lang))
 
 
 @router.callback_query(F.data == "guide")
 async def show_guide(callback: CallbackQuery) -> None:
     await open_guide(callback.message, callback.from_user.id)
     await callback.answer()
-
-
-_TARIFFS_IMG = os.path.join(os.path.dirname(__file__), "..", "assets", "tariffs.png")
 
 
 async def open_subscription(message: Message, user_id: int) -> None:
@@ -95,9 +91,8 @@ async def open_subscription(message: Message, user_id: int) -> None:
         for days, tier in settings.sub_tiers.items()
     )
     caption = t("tariffs_caption", lang, status=status, prices=prices)
-    await message.answer_photo(
-        FSInputFile(_TARIFFS_IMG),
-        caption=caption,
+    await send_with_icon(
+        message, "tariffs", caption,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
 
@@ -131,9 +126,10 @@ async def open_profile(message: Message, user_id: int) -> None:
         status = t("status_admin", lang)
     else:
         status = status_text(user, lang) if user else "—"
-    await message.answer(
+    await send_with_icon(
+        message, "profile",
         t("profile_body", lang, status=status, accounts=accounts or 0,
-          connections=connections or 0, invited=invited or 0)
+          connections=connections or 0, invited=invited or 0),
     )
 
 
@@ -152,7 +148,7 @@ async def open_documents(message: Message, user_id: int) -> None:
         [InlineKeyboardButton(text=t("btn_privacy", lang), url=s.privacy_url)],
         [InlineKeyboardButton(text=t("btn_terms", lang), url=s.terms_url)],
     ])
-    await message.answer(text, reply_markup=kb)
+    await send_with_icon(message, "documents", text, reply_markup=kb)
 
 
 @router.callback_query(F.data == "documents")
@@ -315,9 +311,10 @@ async def open_referral(message: Message, bot: Bot, user_id: int) -> None:
                 User.referred_by == user_id, User.referral_rewarded.is_(True)
             )
         )
-    await message.answer(
+    await send_with_icon(
+        message, "referral",
         t("referral", lang, bonus=settings.referral_bonus_days, link=link,
-          invited=invited or 0, paid=paid or 0)
+          invited=invited or 0, paid=paid or 0),
     )
 
 
@@ -334,7 +331,7 @@ class SupportFlow(StatesGroup):
 async def open_support(message: Message, state: FSMContext, user_id: int) -> None:
     lang = await user_lang(user_id)
     await state.set_state(SupportFlow.waiting_message)
-    await message.answer(t("support_prompt", lang))
+    await send_with_icon(message, "support", t("support_prompt", lang))
 
 
 @router.callback_query(F.data == "support")

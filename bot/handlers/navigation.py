@@ -20,6 +20,7 @@ from bot.handlers.extras import (
 from bot.handlers.sources import open_add_source
 from bot.i18n import label, labels, set_user_lang, t, user_lang
 from bot.keyboards.menus import main_reply_kb
+from bot.ui import send_with_icon
 
 router = Router(name="navigation")
 
@@ -66,14 +67,16 @@ async def nav_more(message: Message, state: FSMContext) -> None:
         [InlineKeyboardButton(text=label("support", lang), callback_data="support")],
         [InlineKeyboardButton(text=label("lang", lang), callback_data="toggle_lang")],
     ])
-    await message.answer(t("more_title", lang), reply_markup=kb)
+    await send_with_icon(message, "more", t("more_title", lang), reply_markup=kb)
 
 
 @router.callback_query(F.data == "toggle_lang")
 async def cb_toggle_lang(callback) -> None:
     new = "en" if (await user_lang(callback.from_user.id)) == "ru" else "ru"
     await set_user_lang(callback.from_user.id, new)
-    await callback.message.answer(t("lang_switched", new), reply_markup=main_reply_kb(new))
+    await send_with_icon(
+        callback.message, "lang", t("lang_switched", new), reply_markup=main_reply_kb(new)
+    )
     await callback.answer()
 
 
