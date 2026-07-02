@@ -51,6 +51,8 @@ class Settings(BaseSettings):
 
     forever_days: int = 36500
 
+    ytdlp_cookies_file: str = ""
+
     download_dir: str = "downloads"
 
     admin_ids: str = ""

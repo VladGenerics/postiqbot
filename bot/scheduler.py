@@ -33,7 +33,7 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
     )
 
     async def pipeline_tick() -> None:
-        await process_pending()
+        await process_pending(bot)
         await process_scheduled(bot)
 
     scheduler.add_job(

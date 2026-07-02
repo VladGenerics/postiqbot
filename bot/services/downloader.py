@@ -7,6 +7,7 @@ import os
 from datetime import datetime, timezone
 
 import yt_dlp
+from aiogram import Bot
 from sqlalchemy import select
 
 from bot.config import get_settings
@@ -15,15 +16,17 @@ from bot.db.models import (
     JOB_FAILED,
     JOB_PENDING,
     JOB_SCHEDULED,
+    Connection,
     Job,
 )
 from bot.db.session import get_session
+from bot.i18n import t, user_lang
 
 logger = logging.getLogger("postiqbot.downloader")
 
 
 def _ydl_opts(dest_dir: str) -> dict:
-    return {
+    opts = {
         "format": "bv*[height<=1920][width<=1920]+ba/b[height<=1920][width<=1920]/b",
         "merge_output_format": "mp4",
         "outtmpl": os.path.join(dest_dir, "%(id)s.%(ext)s"),
@@ -32,6 +35,15 @@ def _ydl_opts(dest_dir: str) -> dict:
         "noplaylist": True,
         "retries": 3,
     }
+    cookies = get_settings().ytdlp_cookies_file
+    if cookies and os.path.exists(cookies):
+        opts["cookiefile"] = cookies
+    return opts
+
+
+def _is_age_restricted(error: str) -> bool:
+    e = error.lower()
+    return "confirm your age" in e or "inappropriate for some users" in e
 
 
 def download(video_url: str, video_id: str) -> str:
@@ -81,7 +93,33 @@ async def _finish(job_id: int, *, local_path: str | None, error: str | None) -> 
                 job.scheduled_at = datetime.now(timezone.utc)
 
 
-async def process_pending(limit: int = 3) -> int:
+async def _notify_fail(bot: Bot, job_id: int, error: str) -> None:
+    """Сообщить пользователю, почему видео не скачалось (иначе — тишина)."""
+    async with get_session() as session:
+        row = (
+            await session.execute(
+                select(Job.title, Connection.user_id)
+                .join(Connection, Connection.id == Job.connection_id)
+                .where(Job.id == job_id)
+            )
+        ).first()
+    if not row:
+        return
+    title, user_id = row
+    title = title or "video"
+    lang = await user_lang(user_id)
+    if _is_age_restricted(error):
+        text = t("download_failed_age", lang, title=title)
+    else:
+        reason = error.strip().splitlines()[0][:200] if error else ""
+        text = t("download_failed", lang, title=title, reason=reason)
+    try:
+        await bot.send_message(user_id, text)
+    except Exception:  # noqa: BLE001
+        logger.warning("Не смог уведомить пользователя %s об ошибке скачивания", user_id)
+
+
+async def process_pending(bot: Bot | None = None, limit: int = 3) -> int:
     """Скачать до `limit` ожидающих видео. Возвращает число успешно скачанных."""
     import asyncio
 
@@ -95,4 +133,6 @@ async def process_pending(limit: int = 3) -> int:
         except Exception as exc:  # noqa: BLE001
             logger.exception("Ошибка скачивания job=%d", job_id)
             await _finish(job_id, local_path=None, error=str(exc))
+            if bot is not None:
+                await _notify_fail(bot, job_id, str(exc))
     return ok

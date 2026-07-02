@@ -143,6 +143,20 @@ T: dict[str, dict[str, str]] = {
         "ru": "❌ Не удалось опубликовать «{title}». Попробуем позже.",
         "en": "❌ Couldn't publish «{title}». We'll retry later.",
     },
+    "download_failed": {
+        "ru": "❌ Не удалось скачать «{title}».\n<i>{reason}</i>",
+        "en": "❌ Couldn't download «{title}».\n<i>{reason}</i>",
+    },
+    "download_failed_age": {
+        "ru": (
+            "❌ Видео «{title}» с возрастным ограничением (18+) — YouTube требует "
+            "вход, и бот не может его скачать. Выбери другой источник."
+        ),
+        "en": (
+            "❌ «{title}» is age-restricted (18+) — YouTube requires sign-in, so the "
+            "bot can't download it. Please pick another source."
+        ),
+    },
     "profile_body": {
         "ru": (
             "👤 <b>Профиль</b>\n\n{status}\n\n"
