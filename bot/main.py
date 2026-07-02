@@ -16,6 +16,7 @@ from bot.handlers import (
     admin,
     connections,
     extras,
+    menu,
     navigation,
     sources,
     start,
@@ -37,6 +38,7 @@ def build_dispatcher() -> Dispatcher:
     dp.message.outer_middleware(PrivateModeMiddleware(allowed))
     dp.callback_query.outer_middleware(PrivateModeMiddleware(allowed))
     dp.include_router(start.router)
+    dp.include_router(menu.router)
     dp.include_router(navigation.router)
     dp.include_router(accounts.router)
     dp.include_router(sources.router)

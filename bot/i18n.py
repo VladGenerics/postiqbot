@@ -45,6 +45,42 @@ T: dict[str, dict[str, str]] = {
         ),
     },
     "more_title": {"ru": "ℹ️ <b>Дополнительно</b>", "en": "ℹ️ <b>More</b>"},
+    "menu_root": {
+        "ru": "🏠 <b>Главное меню</b>\n\nВыбери раздел 👇",
+        "en": "🏠 <b>Main menu</b>\n\nChoose a section 👇",
+    },
+    "menu_connections": {
+        "ru": "➕ <b>Подключения</b>\n\nВыбери действие 👇",
+        "en": "➕ <b>Connections</b>\n\nChoose an action 👇",
+    },
+    "menu_new_conn": {
+        "ru": "➕ <b>Новое подключение</b>\n\nЧто добавить?",
+        "en": "➕ <b>New connection</b>\n\nWhat to add?",
+    },
+    "menu_tariffs": {
+        "ru": "💎 <b>Тарифы</b>\n\nВыбери 👇",
+        "en": "💎 <b>Plans</b>\n\nChoose 👇",
+    },
+    "menu_more": {
+        "ru": "⚙️ <b>Ещё</b>\n\nВыбери раздел 👇",
+        "en": "⚙️ <b>More</b>\n\nChoose a section 👇",
+    },
+    "buy_caption": {
+        "ru": "💎 <b>Купить тариф</b>\n\n{prices}\n\nВыбери тариф ниже 👇",
+        "en": "💎 <b>Buy a plan</b>\n\n{prices}\n\nPick a plan below 👇",
+    },
+    "my_sub_body": {
+        "ru": "⭐ <b>Моя подписка</b>\n\n{status}",
+        "en": "⭐ <b>My subscription</b>\n\n{status}",
+    },
+    "mylist_title": {
+        "ru": "📋 <b>Мои подключения</b>\nВыбери связку, чтобы настроить:",
+        "en": "📋 <b>My connections</b>\nTap a link to configure:",
+    },
+    "mylist_empty": {
+        "ru": "📋 <b>Мои подключения</b>\n\nСвязок пока нет. Нажми «➕ Новое подключение».",
+        "en": "📋 <b>My connections</b>\n\nNo connections yet. Tap «➕ New connection».",
+    },
     "lang_switched": {
         "ru": "🌐 Язык переключён на русский.",
         "en": "🌐 Language switched to English.",

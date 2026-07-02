@@ -5,15 +5,13 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Router
 from aiogram.filters import CommandObject, CommandStart
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardRemove
 from sqlalchemy.dialects.postgresql import insert
 
 from bot.config import get_settings
 from bot.db.models import User
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
-from bot.keyboards.menus import main_reply_kb
-from bot.ui import send_with_icon
 
 router = Router(name="start")
 
@@ -53,9 +51,10 @@ async def _parse_referrer(command: CommandObject, self_id: int) -> int | None:
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, command: CommandObject) -> None:
+    from bot.handlers.menu import open_menu
+
     referred_by = await _parse_referrer(command, message.from_user.id)
     await ensure_user(message.from_user.id, referred_by=referred_by)
     lang = await user_lang(message.from_user.id)
-    await send_with_icon(
-        message, "start", t("welcome", lang), reply_markup=main_reply_kb(lang)
-    )
+    await message.answer(t("welcome", lang), reply_markup=ReplyKeyboardRemove())
+    await open_menu(message, message.from_user.id, "root")
