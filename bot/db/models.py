@@ -246,3 +246,30 @@ class Payment(Base):
     paid_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class SupportMessage(Base):
+    """История обращений в поддержку. Хранит переписку user↔admin."""
+
+    __tablename__ = "support_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    admin_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    text: Mapped[str] = mapped_column(Text)
+    photo_file_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class SupportThread(Base):
+    """Маппинг пользователь ↔ тема (forum topic) в группе поддержки."""
+
+    __tablename__ = "support_threads"
+
+    user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    topic_id: Mapped[int] = mapped_column(Integer, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

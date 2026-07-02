@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     terms_url: str = "https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19"
     support_contact: str = ""
 
+    support_bot_token: str = ""
+    support_group_id: int = 0
+    support_bot_username: str = ""
+
     platega_merchant_id: str = ""
     platega_secret: str = ""
     platega_base_url: str = "https://app.platega.io"

@@ -530,6 +530,42 @@ T: dict[str, dict[str, str]] = {
         "ru": "❌ Не удалось опубликовать «{title}»: {error}",
         "en": "❌ Couldn't publish «{title}»: {error}",
     },
+    "sup_greeting": {
+        "ru": (
+            "👋 Привет! Это чат поддержки PostiqBot.\n\n"
+            "Опиши свой вопрос или проблему — можно текстом и скриншотами. "
+            "Ответим тебе здесь же, как только сможем."
+        ),
+        "en": (
+            "👋 Hi! This is PostiqBot support chat.\n\n"
+            "Describe your question or issue — text and screenshots are fine. "
+            "We'll reply right here as soon as we can."
+        ),
+    },
+    "sup_unavailable": {
+        "ru": "⚠️ Поддержка временно недоступна. Попробуй чуть позже.",
+        "en": "⚠️ Support is temporarily unavailable. Please try again a bit later.",
+    },
+    "sup_undelivered": {
+        "ru": "⚠️ Не удалось доставить ответ пользователю (не начинал чат или заблокировал бота).",
+        "en": "⚠️ Couldn't deliver the reply to the user (hasn't started the chat or blocked the bot).",
+    },
+    "support_open": {
+        "ru": (
+            "🛠 <b>Поддержка</b>\n\n"
+            "Нажми кнопку ниже — откроется чат поддержки. Напиши там свой вопрос "
+            "или проблему, можно со скриншотами. Мы ответим в том же чате."
+        ),
+        "en": (
+            "🛠 <b>Support</b>\n\n"
+            "Tap the button below to open the support chat. Describe your question "
+            "or issue there (screenshots welcome). We'll reply in that chat."
+        ),
+    },
+    "support_open_btn": {
+        "ru": "💬 Открыть чат поддержки",
+        "en": "💬 Open support chat",
+    },
     "inv_title": {"ru": "Подписка PostiqBot — {plan}", "en": "PostiqBot subscription — {plan}"},
     "inv_desc": {"ru": "Доступ к авто-репостингу {period}.", "en": "Auto-reposting access {period}."},
     "inv_period_forever": {"ru": "навсегда", "en": "forever"},

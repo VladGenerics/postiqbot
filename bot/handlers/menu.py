@@ -206,6 +206,16 @@ async def _enter_addsrc(message: Message, state: FSMContext, user_id: int, lang:
 
 
 async def _enter_support(message: Message, state: FSMContext, lang: str) -> None:
+    from bot.support_bot import support_username
+
+    uname = support_username()
+    if uname:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=t("support_open_btn", lang), url=f"https://t.me/{uname}")],
+            _back("root", lang),
+        ])
+        await show_screen(message, "support", t("support_open", lang), kb, edit=True, lang=lang)
+        return
     from bot.handlers.extras import SupportFlow
 
     await state.set_state(SupportFlow.waiting_message)

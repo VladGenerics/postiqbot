@@ -84,11 +84,31 @@ async def main() -> None:
         BotCommand(command="terms", description="📄 Пользовательское соглашение"),
     ])
 
+    support_bot: Bot | None = None
+    support_task: asyncio.Task | None = None
+    if settings.support_bot_token:
+        from bot.support_bot import build_support_dispatcher, set_support_username
+
+        support_bot = Bot(
+            token=settings.support_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
+        me = await support_bot.get_me()
+        set_support_username(me.username)
+        support_dp = build_support_dispatcher()
+        await support_bot.delete_webhook(drop_pending_updates=True)
+        support_task = asyncio.create_task(support_dp.start_polling(support_bot))
+        logger.info("Бот поддержки @%s запущен", me.username)
+
     logger.info("PostiqBot запускается (long polling)…")
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
     finally:
+        if support_task is not None:
+            support_task.cancel()
+        if support_bot is not None:
+            await support_bot.session.close()
         scheduler.shutdown(wait=False)
         await runner.cleanup()
         await bot.session.close()
