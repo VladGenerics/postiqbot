@@ -148,7 +148,7 @@ def _card_markup(conn: Connection, lang: str) -> InlineKeyboardMarkup:
                 callback_data=f"conn_ovl:{conn.id}",
             )],
             [InlineKeyboardButton(text=t("c_btn_delete", lang), callback_data=f"conn_del:{conn.id}")],
-            [InlineKeyboardButton(text=t("c_btn_to_list", lang), callback_data="my_connections")],
+            [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data="nav:mylist")],
         ]
     )
 
@@ -171,12 +171,24 @@ async def show_connections(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
-async def _show_card(callback: CallbackQuery, conn: Connection, lang: str) -> None:
-    """Показать карточку: правим текущее сообщение, а если это фото — шлём новое."""
+async def _edit(message: Message, text: str, markup: InlineKeyboardMarkup | None = None) -> None:
+    """Отредактировать сообщение «на месте»: если это фото-баннер — правим его подпись, если текст — текст."""
     try:
-        await callback.message.edit_text(_card_text(conn, lang), reply_markup=_card_markup(conn, lang))
-    except Exception:  # noqa: BLE001 — сообщение-фото нельзя превратить в текст
-        await callback.message.answer(_card_text(conn, lang), reply_markup=_card_markup(conn, lang))
+        await message.edit_text(text, reply_markup=markup)
+        return
+    except Exception:  # noqa: BLE001 — у фото нет текста, пробуем подпись
+        pass
+    try:
+        await message.edit_caption(caption=text, reply_markup=markup)
+        return
+    except Exception:  # noqa: BLE001
+        pass
+    await message.answer(text, reply_markup=markup)
+
+
+async def _show_card(callback: CallbackQuery, conn: Connection, lang: str) -> None:
+    """Показать карточку в том же окне (текст или подпись баннера)."""
+    await _edit(callback.message, _card_text(conn, lang), _card_markup(conn, lang))
 
 
 @router.callback_query(F.data.startswith("conn:"))
@@ -209,7 +221,7 @@ async def toggle_connection(callback: CallbackQuery) -> None:
             return
         conn.is_active = not conn.is_active
         text, markup = _card_text(conn, lang), _card_markup(conn, lang)
-    await callback.message.edit_text(text, reply_markup=markup)
+    await _edit(callback.message, text, markup)
     await callback.answer(t("c_resumed", lang) if conn.is_active else t("c_paused_toast", lang))
 
 
@@ -231,7 +243,7 @@ async def cycle_privacy(callback: CallbackQuery) -> None:
             return
         conn.privacy = _PRIVACY_NEXT.get(conn.privacy, "private")
         text, markup = _card_text(conn, lang), _card_markup(conn, lang)
-    await callback.message.edit_text(text, reply_markup=markup)
+    await _edit(callback.message, text, markup)
     await callback.answer()
 
 
@@ -247,7 +259,7 @@ async def confirm_delete(callback: CallbackQuery) -> None:
             ]
         ]
     )
-    await callback.message.edit_text(t("c_del_confirm", lang), reply_markup=kb)
+    await _edit(callback.message, t("c_del_confirm", lang), kb)
     await callback.answer()
 
 
@@ -263,7 +275,7 @@ async def schedule_menu(callback: CallbackQuery) -> None:
             [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")],
         ]
     )
-    await callback.message.edit_text(t("c_sched_menu", lang), reply_markup=kb)
+    await _edit(callback.message, t("c_sched_menu", lang), kb)
     await callback.answer()
 
 
@@ -294,7 +306,7 @@ async def sched_now(callback: CallbackQuery) -> None:
     if conn is None:
         await callback.answer(t("c_not_found", lang), show_alert=True)
         return
-    await callback.message.edit_text(_card_text(conn, lang), reply_markup=_card_markup(conn, lang))
+    await _edit(callback.message, _card_text(conn, lang), _card_markup(conn, lang))
     await callback.answer(t("c_sched_now_toast", lang))
 
 
@@ -439,11 +451,7 @@ async def overlay_menu(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer(t("c_not_found", lang), show_alert=True)
         return
     if conn.overlay_file_id:
-        preview, temps = await _build_preview(callback.bot, conn)
-        await callback.message.answer_photo(
-            FSInputFile(preview), caption=t("c_ovl_text", lang), reply_markup=_overlay_markup(conn, lang)
-        )
-        _cleanup(temps)
+        await _refresh_preview(callback, conn, lang)
     else:
         await state.update_data(conn_id=conn_id)
         await state.set_state(OverlayFlow.waiting_image)
@@ -581,5 +589,5 @@ async def do_delete(callback: CallbackQuery) -> None:
             await callback.answer(t("c_not_found", lang), show_alert=True)
             return
         await session.delete(conn)
-    await callback.message.edit_text(t("c_deleted", lang))
+    await _edit(callback.message, t("c_deleted", lang))
     await callback.answer(t("c_deleted_toast", lang))
