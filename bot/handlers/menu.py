@@ -111,7 +111,7 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
             [_btn("➕ Добавить источник", "➕ Add source", lang, "nav:addsrc")],
             _back("connections", lang),
         ]
-        return "connect", t("menu_new_conn", lang), InlineKeyboardMarkup(inline_keyboard=rows)
+        return "connections", t("menu_new_conn", lang), InlineKeyboardMarkup(inline_keyboard=rows)
 
     if screen == "connect":
         rows = [
