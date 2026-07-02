@@ -25,9 +25,17 @@ from bot.i18n import t, user_lang
 logger = logging.getLogger("postiqbot.downloader")
 
 
+_FORMAT = (
+    "bv*[vcodec^=avc1][height<=1920][width<=1920]+ba[acodec^=mp4a]/"
+    "bv*[ext=mp4][height<=1920][width<=1920]+ba[ext=m4a]/"
+    "b[ext=mp4][height<=1920][width<=1920]/"
+    "b[height<=1920][width<=1920]/b"
+)
+
+
 def _ydl_opts(dest_dir: str) -> dict:
     opts = {
-        "format": "bv*[height<=1920][width<=1920]+ba/b[height<=1920][width<=1920]/b",
+        "format": _FORMAT,
         "merge_output_format": "mp4",
         "outtmpl": os.path.join(dest_dir, "%(id)s.%(ext)s"),
         "quiet": True,
