@@ -71,3 +71,40 @@ async def fetch_recent_tiktok(username: str) -> Feed | None:
         return await asyncio.to_thread(_extract_sync, username)
     except Exception:
         return None
+
+
+def _archive_sync(username: str, limit: int) -> list[FeedEntry]:
+    opts = {
+        "quiet": True,
+        "extract_flat": True,
+        "skip_download": True,
+        "noprogress": True,
+        "no_warnings": True,
+        "ignoreerrors": True,
+        "playlist_items": f"1:{limit}",
+    }
+    cookies = get_settings().tiktok_cookies_file
+    if cookies:
+        opts["cookiefile"] = cookies
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(_profile_url(username), download=False)
+    entries: list[FeedEntry] = []
+    for e in (info or {}).get("entries") or []:
+        if not e:
+            continue
+        vid = e.get("id")
+        if not vid:
+            continue
+        url = e.get("url") or f"{_profile_url(username)}/video/{vid}"
+        text = e.get("title") or e.get("description") or "video"
+        entries.append(FeedEntry(video_id=str(vid), title=text[:200], url=url))
+    entries.reverse()
+    return entries[:limit]
+
+
+async def fetch_tiktok_archive(username: str, limit: int) -> list[FeedEntry]:
+    """Архив TikTok-профиля в порядке СТАРЫЕ → НОВЫЕ, не более `limit`."""
+    try:
+        return await asyncio.to_thread(_archive_sync, username, limit)
+    except Exception:
+        return []

@@ -226,88 +226,38 @@ async def cmd_backfill(message: Message, command: CommandObject) -> None:
         return
     conn_id = int(parts[0])
     n = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 50
-    n = max(1, min(n, 1000))
 
-    async with get_session() as session:
-        conn = await session.get(Connection, conn_id)
-        if conn is None:
-            await message.answer("⚠️ Связка не найдена.")
-            return
-        source = await session.get(SourceChannel, conn.source_channel_id)
-        sched_mode = conn.schedule_mode
-        interval = conn.interval_minutes
-        post_times = conn.post_times
-        tz = conn.tz
-    if source is None:
-        await message.answer("⚠️ У связки нет источника.")
-        return
-    if source.platform != "youtube":
-        await message.answer("⚠️ Бэкфилл архива пока поддержан только для YouTube.")
-        return
+    from bot.services.backfill import backfill_connection
 
-    await message.answer(f"⏳ Собираю архив «{source.channel_title}» (до {n} видео)…")
-    try:
-        entries = await asyncio.to_thread(
-            fetch_channel_archive, source.channel_id, n
-        )
-    except Exception as exc:  # noqa: BLE001
-        await message.answer(f"❌ Не удалось получить архив: {exc}")
+    await message.answer(f"⏳ Собираю архив (до {n} видео)…")
+    res = await backfill_connection(conn_id, n)
+    if not res.ok:
+        errmap = {
+            "not_found": "⚠️ Связка не найдена.",
+            "no_source": "⚠️ У связки нет источника.",
+            "unsupported": "⚠️ Платформа источника не поддержана.",
+            "empty": "⚠️ Архив пуст или источник недоступен (для TikTok могут понадобиться cookies).",
+        }
+        await message.answer(errmap.get(res.error or "", "⚠️ Не удалось собрать архив."))
         return
-    if not entries:
-        await message.answer("⚠️ Архив пуст или канал недоступен.")
-        return
-
-    now = datetime.now(timezone.utc)
-    running = await _last_scheduled_at(conn_id)
-    created = 0
-    first_at = last_at = None
-    async with get_session() as session:
-        for entry in entries:
-            sched = compute_scheduled_at(
-                mode=sched_mode,
-                interval_minutes=interval,
-                post_times=post_times,
-                tz_name=tz,
-                last_scheduled=running,
-                now=now,
-            )
-            stmt = (
-                insert(Job)
-                .values(
-                    connection_id=conn_id,
-                    source_video_id=entry.video_id,
-                    video_url=entry.url,
-                    title=entry.title,
-                    status=JOB_PENDING,
-                    scheduled_at=sched,
-                )
-                .on_conflict_do_nothing(constraint="uq_job_source_video")
-            )
-            res = await session.execute(stmt)
-            if res.rowcount:
-                created += 1
-                first_at = first_at or sched
-                last_at = sched
-            running = sched
-
-    if not created:
+    if res.created == 0:
         await message.answer(
             "ℹ️ Новых видео не добавлено — все архивные ролики уже в очереди/опубликованы."
         )
         return
     tail = (
-        f"\nПервое: {first_at:%d.%m %H:%M} · последнее: {last_at:%d.%m %H:%M} (UTC)"
-        if first_at and last_at else ""
+        f"\nПервое: {res.first_at:%d.%m %H:%M} · последнее: {res.last_at:%d.%m %H:%M} (UTC)"
+        if res.first_at and res.last_at else ""
     )
     note = (
         "\n⚠️ Расписание связки «immediate» — видео пойдут так быстро, как "
         "позволит дневная квота проекта (6/день). Для ровного потока поставь "
         "интервал в настройках связки."
-        if sched_mode not in ("interval", "times") else ""
+        if res.sched_mode not in ("interval", "times") else ""
     )
     await message.answer(
-        f"✅ В очередь поставлено <b>{created}</b> видео из архива "
-        f"«{source.channel_title}» (старые → новые).{tail}{note}"
+        f"✅ В очередь поставлено <b>{res.created}</b> видео из архива "
+        f"«{res.title}» (старые → новые).{tail}{note}"
     )
 
 

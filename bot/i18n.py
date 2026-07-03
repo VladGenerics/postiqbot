@@ -447,6 +447,25 @@ T: dict[str, dict[str, str]] = {
     "c_ovl_scale_toast": {"ru": "Размер обновлён", "en": "Size updated"},
     "c_ovl_removed_toast": {"ru": "Оверлей убран", "en": "Overlay removed"},
     "c_not_found_short": {"ru": "Не найдено", "en": "Not found"},
+    "c_btn_backfill": {"ru": "📥 Залить архив", "en": "📥 Backfill"},
+    "bf_choose": {
+        "ru": "📥 <b>Залить архив источника</b>\nСколько последних видео поставить в очередь (старые → новые)?",
+        "en": "📥 <b>Backfill the source archive</b>\nHow many recent videos to queue (oldest → newest)?",
+    },
+    "bf_working": {"ru": "⏳ Собираю архив…", "en": "⏳ Fetching the archive…"},
+    "bf_done": {
+        "ru": "✅ В очередь поставлено <b>{created}</b> видео из «{title}» (старые → новые).",
+        "en": "✅ Queued <b>{created}</b> videos from «{title}» (oldest → newest).",
+    },
+    "bf_empty": {
+        "ru": "⚠️ Архив пуст или источник недоступен (для TikTok могут понадобиться cookies).",
+        "en": "⚠️ Archive is empty or the source is unavailable (TikTok may need cookies).",
+    },
+    "bf_none": {
+        "ru": "ℹ️ Новых видео не добавлено — всё уже в очереди или опубликовано.",
+        "en": "ℹ️ Nothing new added — everything is already queued or published.",
+    },
+    "bf_toast": {"ru": "Готово", "en": "Done"},
     "src_bad_link": {
         "ru": (
             "❌ Не получилось распознать канал. Проверь ссылку и пришли ещё раз.\n"

@@ -147,6 +147,7 @@ def _card_markup(conn: Connection, lang: str) -> InlineKeyboardMarkup:
                 text=t("c_btn_overlay", lang, ovl=_ovl_desc(conn, lang)),
                 callback_data=f"conn_ovl:{conn.id}",
             )],
+            [InlineKeyboardButton(text=t("c_btn_backfill", lang), callback_data=f"conn_bf:{conn.id}")],
             [InlineKeyboardButton(text=t("c_btn_delete", lang), callback_data=f"conn_del:{conn.id}")],
             [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data="nav:mylist")],
         ]
@@ -261,6 +262,39 @@ async def confirm_delete(callback: CallbackQuery) -> None:
     )
     await _edit(callback.message, t("c_del_confirm", lang), kb)
     await callback.answer()
+
+
+@router.callback_query(F.data.startswith("conn_bf:"))
+async def backfill_menu(callback: CallbackQuery) -> None:
+    lang = await user_lang(callback.from_user.id)
+    conn_id = int(callback.data.split(":", 1)[1])
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=str(n), callback_data=f"bf:{conn_id}:{n}") for n in (10, 25, 50)],
+        [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")],
+    ])
+    await _edit(callback.message, t("bf_choose", lang), kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("bf:"))
+async def backfill_do(callback: CallbackQuery) -> None:
+    from bot.services.backfill import backfill_connection
+
+    lang = await user_lang(callback.from_user.id)
+    _, conn_id, n = callback.data.split(":", 2)
+    await callback.answer(t("bf_working", lang))
+    await _edit(callback.message, t("bf_working", lang))
+    res = await backfill_connection(int(conn_id), int(n), user_id=callback.from_user.id)
+    if not res.ok:
+        txt = t("bf_empty", lang) if res.error in ("empty", "unsupported", "no_source") else t("c_not_found", lang)
+    elif res.created == 0:
+        txt = t("bf_none", lang)
+    else:
+        txt = t("bf_done", lang, created=res.created, title=res.title)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")],
+    ])
+    await _edit(callback.message, txt, kb)
 
 
 @router.callback_query(F.data.startswith("conn_sched:"))
