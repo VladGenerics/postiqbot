@@ -9,13 +9,24 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import joinedload
 
-from bot.db.models import JOB_FAILED, JOB_PENDING, Connection, Job
+from bot.config import get_settings
+from bot.db.models import JOB_FAILED, JOB_PENDING, Connection, Job, User
 from bot.db.session import get_session
 from bot.services.archive import fetch_channel_archive
 from bot.services.scheduling import compute_scheduled_at
 from bot.services.tiktok_source import fetch_tiktok_archive
 
 MAX_BACKFILL = 1000
+
+
+async def backfill_cap(user_id: int | None) -> int:
+    """Максимум видео за один бэкфилл."""
+    s = get_settings()
+    if user_id is None or user_id in s.admin_id_set:
+        return MAX_BACKFILL
+    async with get_session() as session:
+        user = await session.get(User, user_id)
+    return user.tier_videos if user and user.tier_videos else s.trial_videos
 
 
 @dataclass
@@ -40,7 +51,7 @@ async def _last_scheduled(conn_id: int) -> datetime | None:
 
 async def backfill_connection(conn_id: int, limit: int, user_id: int | None = None) -> BackfillResult:
     """Поставить в очередь до `limit` архивных видео источника связки."""
-    limit = max(1, min(limit, MAX_BACKFILL))
+    limit = max(1, min(limit, await backfill_cap(user_id)))
     async with get_session() as session:
         conn = await session.scalar(
             select(Connection)

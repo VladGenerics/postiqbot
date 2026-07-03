@@ -266,13 +266,17 @@ async def confirm_delete(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data.startswith("conn_bf:"))
 async def backfill_menu(callback: CallbackQuery) -> None:
+    from bot.services.backfill import backfill_cap
+
     lang = await user_lang(callback.from_user.id)
     conn_id = int(callback.data.split(":", 1)[1])
+    cap = await backfill_cap(callback.from_user.id)
+    counts = sorted({n for n in (10, 25, 50) if n < cap} | {cap})
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=str(n), callback_data=f"bf:{conn_id}:{n}") for n in (10, 25, 50)],
+        [InlineKeyboardButton(text=str(n), callback_data=f"bf:{conn_id}:{n}") for n in counts],
         [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")],
     ])
-    await _edit(callback.message, t("bf_choose", lang), kb)
+    await _edit(callback.message, t("bf_choose", lang, cap=cap), kb)
     await callback.answer()
 
 

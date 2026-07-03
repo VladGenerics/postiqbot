@@ -449,8 +449,16 @@ T: dict[str, dict[str, str]] = {
     "c_not_found_short": {"ru": "Не найдено", "en": "Not found"},
     "c_btn_backfill": {"ru": "📥 Залить архив", "en": "📥 Backfill"},
     "bf_choose": {
-        "ru": "📥 <b>Залить архив источника</b>\nСколько последних видео поставить в очередь (старые → новые)?",
-        "en": "📥 <b>Backfill the source archive</b>\nHow many recent videos to queue (oldest → newest)?",
+        "ru": (
+            "📥 <b>Залить архив источника</b>\n"
+            "Сколько последних видео поставить в очередь (старые → новые)?\n"
+            "<i>Максимум по тарифу: {cap}. Публикуется до 4/день на аккаунт.</i>"
+        ),
+        "en": (
+            "📥 <b>Backfill the source archive</b>\n"
+            "How many recent videos to queue (oldest → newest)?\n"
+            "<i>Plan limit: {cap}. Publishes up to 4/day per account.</i>"
+        ),
     },
     "bf_working": {"ru": "⏳ Собираю архив…", "en": "⏳ Fetching the archive…"},
     "bf_done": {
