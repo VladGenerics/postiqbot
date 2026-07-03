@@ -54,15 +54,18 @@ def _is_age_restricted(error: str) -> bool:
     return "confirm your age" in e or "inappropriate for some users" in e
 
 
-def download(video_url: str, video_id: str) -> str:
+def download(video_url: str, video_id: str, job_id: int) -> str:
     """Скачать видео, вернуть путь к файлу (синхронно)."""
     dest_dir = get_settings().download_dir
     os.makedirs(dest_dir, exist_ok=True)
-    with yt_dlp.YoutubeDL(_ydl_opts(dest_dir)) as ydl:
+    stem = f"{video_id}_{job_id}"
+    opts = _ydl_opts(dest_dir)
+    opts["outtmpl"] = os.path.join(dest_dir, f"{stem}.%(ext)s")
+    with yt_dlp.YoutubeDL(opts) as ydl:
         ydl.download([video_url])
-    matches = glob.glob(os.path.join(dest_dir, f"{video_id}.*"))
+    matches = glob.glob(os.path.join(dest_dir, f"{stem}.*"))
     if not matches:
-        raise FileNotFoundError(f"Файл для {video_id} не найден после скачивания")
+        raise FileNotFoundError(f"Файл для {stem} не найден после скачивания")
     matches.sort(key=lambda p: (not p.endswith(".mp4"), -os.path.getsize(p)))
     return matches[0]
 
@@ -134,7 +137,7 @@ async def process_pending(bot: Bot | None = None, limit: int = 3) -> int:
     ok = 0
     for job_id, url, video_id in await _claim_pending(limit):
         try:
-            path = await asyncio.to_thread(download, url, video_id)
+            path = await asyncio.to_thread(download, url, video_id, job_id)
             await _finish(job_id, local_path=path, error=None)
             ok += 1
             logger.info("Скачано job=%d → %s", job_id, path)

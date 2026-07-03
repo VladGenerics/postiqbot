@@ -244,7 +244,11 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
         except Exception as exc:  # noqa: BLE001
             logger.exception("Ошибка публикации job=%d", task.job_id)
             await _finalize(task.job_id, remote_id=None, error=str(exc))
-            await _notify(bot, task.user_id, t("pub_fail", lang, title=task.title, error=str(exc)))
+            if "spam_risk_too_many_pending_share" in str(exc):
+                msg = t("pub_tt_too_many", lang, title=task.title)
+            else:
+                msg = t("pub_fail", lang, title=task.title, error=str(exc))
+            await _notify(bot, task.user_id, msg)
         finally:
             _cleanup(task.local_path)
             for f in extra_files:

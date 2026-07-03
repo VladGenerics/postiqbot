@@ -530,6 +530,17 @@ T: dict[str, dict[str, str]] = {
         "ru": "❌ Не удалось опубликовать «{title}»: {error}",
         "en": "❌ Couldn't publish «{title}»: {error}",
     },
+    "pub_tt_too_many": {
+        "ru": (
+            "⚠️ TikTok не принял «{title}»: слишком много неопубликованных черновиков.\n"
+            "Открой TikTok → Профиль → Черновики, опубликуй или удали старые, "
+            "потом можно повторить."
+        ),
+        "en": (
+            "⚠️ TikTok rejected «{title}»: too many unpublished drafts.\n"
+            "Open TikTok → Profile → Drafts, publish or delete old ones, then retry."
+        ),
+    },
     "sup_greeting": {
         "ru": (
             "👋 Привет! Это чат поддержки PostiqBot.\n\n"
