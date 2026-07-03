@@ -104,7 +104,11 @@ T: dict[str, dict[str, str]] = {
         "en": "💳 <b>{plan}</b> plan. Choose a payment method:",
     },
     "btn_pay_stars": {"ru": "⭐ Telegram Stars ({stars})", "en": "⭐ Telegram Stars ({stars})"},
-    "btn_pay_rub": {"ru": "₽ СБП / карта ({rub} ₽)", "en": "₽ Card / SBP ({rub} ₽)"},
+    "btn_pay_rub": {"ru": "₽ СБП / карта ({price})", "en": "💳 Card / SBP ({price})"},
+    "price_line": {
+        "ru": "• {plan} — <b>{price}</b> ({accounts} акк, {videos} видео/день)",
+        "en": "• {plan} — <b>{price}</b> ({accounts} accounts, {videos} videos/day)",
+    },
     "rub_soon": {
         "ru": "₽ Оплата через СБП/карту скоро подключится. Пока можно оплатить через Telegram Stars (⭐) или написать в «✍️ Поддержка».",
         "en": "₽ Card/SBP payment is coming soon. For now use Telegram Stars (⭐) or contact «✍️ Support».",

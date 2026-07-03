@@ -80,14 +80,15 @@ async def open_subscription(message: Message, user_id: int) -> None:
         status = status_text(user, lang) if user else "—"
     rows = [
         [InlineKeyboardButton(
-            text=f"{settings.tier_label(days, lang)} — {tier['rub']} ₽",
+            text=f"{settings.tier_label(days, lang)} — {settings.tier_price(days, lang)}",
             callback_data=f"buy_sub:{days}",
         )]
-        for days, tier in settings.sub_tiers.items()
+        for days in settings.sub_tiers
     ]
     prices = "\n".join(
-        f"• {settings.tier_label(days, lang)} — <b>{tier['rub']} ₽</b> "
-        f"({tier['accounts']} акк, {tier['videos']} видео/день)"
+        t("price_line", lang, plan=settings.tier_label(days, lang),
+          price=settings.tier_price(days, lang),
+          accounts=tier["accounts"], videos=tier["videos"])
         for days, tier in settings.sub_tiers.items()
     )
     caption = t("tariffs_caption", lang, status=status, prices=prices)
@@ -167,7 +168,8 @@ async def buy_subscription(callback: CallbackQuery) -> None:
         return
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text=t("btn_pay_rub", lang, rub=tier["rub"]), callback_data=f"pay_rub:{days}"
+            text=t("btn_pay_rub", lang, price=get_settings().tier_price(days, lang)),
+            callback_data=f"pay_rub:{days}"
         )],
         [InlineKeyboardButton(
             text=t("btn_pay_stars", lang, stars=tier["stars"]), callback_data=f"pay_stars:{days}"

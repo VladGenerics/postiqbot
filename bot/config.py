@@ -74,12 +74,12 @@ class Settings(BaseSettings):
     referral_bonus_days: int = 7
 
     @property
-    def sub_tiers(self) -> dict[int, dict[str, int]]:
-        """{дни: {stars, rub, accounts, videos}} — videos = лимит публикаций в ДЕНЬ."""
+    def sub_tiers(self) -> dict[int, dict]:
+        """{дни: {stars, rub, usd, accounts, videos}} — videos = лимит публикаций в ДЕНЬ."""
         return {
-            7: {"stars": 60, "rub": 99, "accounts": 2, "videos": 8},
-            30: {"stars": 120, "rub": 199, "accounts": 5, "videos": 40},
-            self.forever_days: {"stars": 360, "rub": 599, "accounts": 25, "videos": 100},
+            7: {"stars": 60, "rub": 99, "usd": 0.99, "accounts": 2, "videos": 8},
+            30: {"stars": 120, "rub": 199, "usd": 1.99, "accounts": 5, "videos": 40},
+            self.forever_days: {"stars": 360, "rub": 599, "usd": 5.99, "accounts": 25, "videos": 100},
         }
 
     def tier_label(self, days: int, lang: str = "ru") -> str:
@@ -88,6 +88,13 @@ class Settings(BaseSettings):
             return "♾️ Навсегда" if lang == "ru" else "♾️ Forever"
         suffix = "дн." if lang == "ru" else "d"
         return f"📅 {days} {suffix}"
+
+    def tier_price(self, days: int, lang: str = "ru") -> str:
+        """Цена тарифа строкой: ₽ для ru, $ для en."""
+        tier = self.sub_tiers.get(days, {})
+        if lang == "en":
+            return f"${tier.get('usd', 0):.2f}"
+        return f"{tier.get('rub', 0)} ₽"
 
     @property
     def admin_id_set(self) -> set[int]:

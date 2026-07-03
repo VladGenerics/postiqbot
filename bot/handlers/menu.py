@@ -78,8 +78,9 @@ async def _referral_caption(user_id: int, lang: str, bot: Bot) -> str:
 def _prices(lang: str) -> str:
     settings = get_settings()
     return "\n".join(
-        f"• {settings.tier_label(days, lang)} — <b>{tier['rub']} ₽</b> "
-        f"({tier['accounts']} акк, {tier['videos']} видео/день)"
+        t("price_line", lang, plan=settings.tier_label(days, lang),
+          price=settings.tier_price(days, lang),
+          accounts=tier["accounts"], videos=tier["videos"])
         for days, tier in settings.sub_tiers.items()
     )
 
@@ -143,10 +144,10 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
     if screen == "buy":
         rows = [
             [InlineKeyboardButton(
-                text=f"{settings.tier_label(days, lang)} — {tier['rub']} ₽",
+                text=f"{settings.tier_label(days, lang)} — {settings.tier_price(days, lang)}",
                 callback_data=f"buy_sub:{days}",
             )]
-            for days, tier in settings.sub_tiers.items()
+            for days in settings.sub_tiers
         ]
         rows.append(_back("tariffs", lang))
         return "tariffs", t("buy_caption", lang, prices=_prices(lang)), InlineKeyboardMarkup(inline_keyboard=rows)
