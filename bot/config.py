@@ -64,10 +64,10 @@ class Settings(BaseSettings):
     private_mode: bool = False
     private_message: str = (
         "🚀 <b>PostiqBot запускается 30 июня!</b>\n\n"
-        "Подпишись на канал, чтобы на старте забрать бесплатный доступ на 3 дня."
+        "Подпишись на канал, чтобы на старте забрать бесплатный доступ на 7 дней."
     )
 
-    trial_days: int = 3
+    trial_days: int = 7
     trial_accounts: int = 1
     trial_videos: int = 5
 
