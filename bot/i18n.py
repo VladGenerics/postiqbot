@@ -466,8 +466,18 @@ T: dict[str, dict[str, str]] = {
     },
     "bf_all": {"ru": "Всё", "en": "All"},
     "bf_choose_conn": {
-        "ru": "📥 <b>Залить архив</b>\nВыбери связку, чей источник залить в очередь:",
-        "en": "📥 <b>Backfill</b>\nPick a connection whose source to queue:",
+        "ru": (
+            "📥 <b>Залить архив</b>\n"
+            "Поставит в очередь <b>прошлые</b> видео источника (старые → новые) — "
+            "они будут публиковаться на твой канал по 4/день на связку.\n\n"
+            "Выбери связку:"
+        ),
+        "en": (
+            "📥 <b>Backfill</b>\n"
+            "Queues the source's <b>past</b> videos (oldest → newest) — they'll "
+            "publish to your channel at 4/day per connection.\n\n"
+            "Pick a connection:"
+        ),
     },
     "bf_working": {"ru": "⏳ Собираю архив…", "en": "⏳ Fetching the archive…"},
     "bf_done": {

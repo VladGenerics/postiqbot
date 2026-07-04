@@ -269,7 +269,7 @@ async def _backfill_count_kb(conn_id: int, lang: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=str(n), callback_data=f"bf:{conn_id}:{n}") for n in (25, 50, 100)],
         [InlineKeyboardButton(text="300", callback_data=f"bf:{conn_id}:300"),
          InlineKeyboardButton(text=t("bf_all", lang), callback_data=f"bf:{conn_id}:1000")],
-        [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")],
+        [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data="nav:bflist")],
     ])
 
 
@@ -297,7 +297,7 @@ async def backfill_do(callback: CallbackQuery) -> None:
     else:
         txt = t("bf_done", lang, created=res.created, title=res.title)
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")],
+        [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data="nav:bflist")],
     ])
     await _edit(callback.message, txt, kb)
 
