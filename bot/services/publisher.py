@@ -76,17 +76,15 @@ async def _claim_due(limit: int) -> list[_Task]:
         )
         used: dict[int, int] = dict(used_rows.all())
 
-        acc_used_rows = await session.execute(
-            select(Connection.publish_account_id, func.count(Job.id))
-            .select_from(Job)
-            .join(Connection, Connection.id == Job.connection_id)
+        conn_used_rows = await session.execute(
+            select(Job.connection_id, func.count(Job.id))
             .where(
                 Job.status == JOB_PUBLISHED,
                 Job.updated_at >= _start_of_day(now),
             )
-            .group_by(Connection.publish_account_id)
+            .group_by(Job.connection_id)
         )
-        acc_used: dict[int, int] = dict(acc_used_rows.all())
+        conn_used: dict[int, int] = dict(conn_used_rows.all())
 
         candidates = list(
             await session.scalars(
@@ -105,7 +103,7 @@ async def _claim_due(limit: int) -> list[_Task]:
 
         user_ids = [j.connection.user_id for j in candidates]
         admins = get_settings().admin_id_set
-        per_acc_limit = get_settings().per_account_daily_limit
+        per_conn_limit = get_settings().per_account_daily_limit
         user_used = await published_today_by_user(session, user_ids)
         user_limit = {
             u.telegram_id: u.tier_videos
@@ -121,10 +119,10 @@ async def _claim_due(limit: int) -> list[_Task]:
             uid = conn.user_id
             is_admin = uid in admins
             acc = conn.publish_account
+            if conn_used.get(conn.id, 0) >= per_conn_limit:
+                continue
             if not is_admin:
                 if user_used.get(uid, 0) >= user_limit.get(uid, 0):
-                    continue
-                if acc_used.get(acc.id, 0) >= per_acc_limit:
                     continue
             common = dict(
                 job_id=job.id,
@@ -159,7 +157,7 @@ async def _claim_due(limit: int) -> list[_Task]:
                 tasks.append(_Task(platform="tiktok", **common))
             else:
                 continue
-            acc_used[acc.id] = acc_used.get(acc.id, 0) + 1
+            conn_used[conn.id] = conn_used.get(conn.id, 0) + 1
             user_used[uid] = user_used.get(uid, 0) + 1
     return tasks
 

@@ -452,13 +452,18 @@ T: dict[str, dict[str, str]] = {
         "ru": (
             "📥 <b>Залить архив источника</b>\n"
             "Сколько последних видео поставить в очередь (старые → новые)?\n"
-            "<i>Максимум по тарифу: {cap}. Публикуется до 4/день на аккаунт.</i>"
+            "<i>В очередь можно сколько угодно — публикуется до 4/день на аккаунт.</i>"
         ),
         "en": (
             "📥 <b>Backfill the source archive</b>\n"
             "How many recent videos to queue (oldest → newest)?\n"
-            "<i>Plan limit: {cap}. Publishes up to 4/day per account.</i>"
+            "<i>Queue as many as you want — it publishes up to 4/day per account.</i>"
         ),
+    },
+    "bf_all": {"ru": "Всё", "en": "All"},
+    "bf_choose_conn": {
+        "ru": "📥 <b>Залить архив</b>\nВыбери связку, чей источник залить в очередь:",
+        "en": "📥 <b>Backfill</b>\nPick a connection whose source to queue:",
     },
     "bf_working": {"ru": "⏳ Собираю архив…", "en": "⏳ Fetching the archive…"},
     "bf_done": {

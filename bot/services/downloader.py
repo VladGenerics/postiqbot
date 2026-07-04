@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import yt_dlp
 from aiogram import Bot
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
 from bot.config import get_settings
 from bot.db.models import (
@@ -70,21 +70,42 @@ def download(video_url: str, video_id: str, job_id: int) -> str:
     return matches[0]
 
 
+_INFLIGHT_CAP = 4
+
+
 async def _claim_pending(limit: int) -> list[tuple[int, str, str]]:
-    """Захватить pending-job'ы (перевести в downloading). Вернуть (id, url, video_id)."""
+    """Захватить pending-job'ы (→ downloading)."""
+    now = datetime.now(timezone.utc)
     claimed: list[tuple[int, str, str]] = []
     async with get_session() as session:
+        inflight: dict[int, int] = dict(
+            (
+                await session.execute(
+                    select(Job.connection_id, func.count(Job.id))
+                    .where(Job.status == JOB_SCHEDULED, Job.local_path.isnot(None))
+                    .group_by(Job.connection_id)
+                )
+            ).all()
+        )
         jobs = list(
             await session.scalars(
                 select(Job)
-                .where(Job.status == JOB_PENDING)
-                .order_by(Job.created_at)
-                .limit(limit)
+                .where(
+                    Job.status == JOB_PENDING,
+                    or_(Job.scheduled_at.is_(None), Job.scheduled_at <= now),
+                )
+                .order_by(Job.scheduled_at, Job.created_at)
+                .limit(limit * 4)
                 .with_for_update(skip_locked=True)
             )
         )
         for job in jobs:
+            if len(claimed) >= limit:
+                break
+            if inflight.get(job.connection_id, 0) >= _INFLIGHT_CAP:
+                continue
             job.status = JOB_DOWNLOADING
+            inflight[job.connection_id] = inflight.get(job.connection_id, 0) + 1
             claimed.append((job.id, job.video_url, job.source_video_id))
     return claimed
 

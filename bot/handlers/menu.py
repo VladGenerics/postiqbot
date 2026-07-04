@@ -102,6 +102,7 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
         rows = [
             [_btn("📋 Мои подключения", "📋 My connections", lang, "nav:mylist")],
             [_btn("➕ Новое подключение", "➕ New connection", lang, "nav:newconn")],
+            [InlineKeyboardButton(text=t("c_btn_backfill", lang), callback_data="nav:bflist")],
             _back("root", lang),
         ]
         return "connections", t("menu_connections", lang), InlineKeyboardMarkup(inline_keyboard=rows)
@@ -238,6 +239,28 @@ async def _show_mylist(message: Message, user_id: int, lang: str) -> None:
                       InlineKeyboardMarkup(inline_keyboard=rows), edit=True, lang=lang)
 
 
+async def _show_bflist(message: Message, user_id: int, lang: str) -> None:
+    """Список связок для бэкфилла — кнопки ведут сразу к выбору количества."""
+    from bot.handlers.connections import _load_connections
+
+    connections = await _load_connections(user_id)
+    if not connections:
+        kb = InlineKeyboardMarkup(inline_keyboard=[_back("connections", lang)])
+        await show_screen(message, "connections", t("mylist_empty", lang), kb, edit=True, lang=lang)
+        return
+    rows = [
+        [InlineKeyboardButton(
+            text=f"{'🟢' if c.is_active else '⏸'} "
+            f"{c.source_channel.channel_title} → {c.publish_account.channel_title}",
+            callback_data=f"conn_bf:{c.id}",
+        )]
+        for c in connections
+    ]
+    rows.append(_back("connections", lang))
+    await show_screen(message, "connections", t("bf_choose_conn", lang),
+                      InlineKeyboardMarkup(inline_keyboard=rows), edit=True, lang=lang)
+
+
 @router.callback_query(F.data.startswith("nav:"))
 async def on_nav(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     screen = callback.data.split(":", 1)[1]
@@ -262,6 +285,10 @@ async def on_nav(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
         return
     elif screen == "mylist":
         await _show_mylist(message, user_id, lang)
+        await callback.answer()
+        return
+    elif screen == "bflist":
+        await _show_bflist(message, user_id, lang)
         await callback.answer()
         return
 
