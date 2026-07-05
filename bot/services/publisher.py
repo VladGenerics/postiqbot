@@ -13,6 +13,7 @@ from sqlalchemy.orm import joinedload
 
 from bot.db.models import (
     JOB_FAILED,
+    JOB_PENDING,
     JOB_PUBLISHED,
     JOB_PUBLISHING,
     JOB_SCHEDULED,
@@ -175,6 +176,15 @@ async def _finalize(job_id: int, *, remote_id: str | None, error: str | None) ->
             job.youtube_video_id = remote_id
 
 
+async def _requeue(job_id: int) -> None:
+    """Вернуть джоб на скачивание (файл пропал — напр."""
+    async with get_session() as session:
+        job = await session.get(Job, job_id)
+        if job:
+            job.status = JOB_PENDING
+            job.local_path = None
+
+
 def _yt_upload(task: _Task, path: str) -> str:
     creds = credentials_from_refresh_token(
         task.refresh_token, task.client_id, task.client_secret
@@ -231,6 +241,10 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
     for task in await _claim_due(limit):
         extra_files: list[str] = []
         lang = await user_lang(task.user_id)
+        if not task.local_path or not os.path.exists(task.local_path):
+            logger.warning("Файл job=%d пропал — возвращаю на скачивание", task.job_id)
+            await _requeue(task.job_id)
+            continue
         try:
             publish_path, extra_files = await _prepare_path(bot, task)
             remote_id = await _publish(task, publish_path)

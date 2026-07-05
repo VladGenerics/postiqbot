@@ -28,6 +28,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://postiq:${POSTGRES_PASSWORD:-postiq}@db:5432/postiq
     expose:
       - "8080"
+    volumes:
+      - postiq-downloads:/app/downloads
     depends_on:
       db:
         condition: service_healthy
@@ -56,5 +58,6 @@ services:
 
 volumes:
   postiq-pgdata:
+  postiq-downloads:
   caddy-data:
   caddy-config:
