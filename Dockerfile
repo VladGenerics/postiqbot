@@ -32,7 +32,9 @@ COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY . .
 
-RUN useradd -m -u 1000 postiq && chown -R postiq:postiq /app
+RUN useradd -m -u 1000 postiq \
+    && mkdir -p /app/downloads \
+    && chown -R postiq:postiq /app
 USER postiq
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
