@@ -8,3 +8,5 @@ venv/
 downloads/
 *.log
 .DS_Store
+cookies.txt
+*cookies*.txt

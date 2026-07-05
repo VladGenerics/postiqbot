@@ -30,6 +30,7 @@ services:
       - "8080"
     volumes:
       - postiq-downloads:/app/downloads
+      - ./cookies.txt:/app/cookies.txt:ro
     depends_on:
       db:
         condition: service_healthy

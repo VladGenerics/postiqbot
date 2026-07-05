@@ -53,9 +53,35 @@ def _extract_sync(username: str) -> Feed:
     return Feed(channel_title=title, entries=entries)
 
 
+def _resolve_username_sync(query: str) -> str | None:
+    """Достать @username из любой TikTok-ссылки: прямой профиль, @handle."""
+    q = query.strip()
+    m = re.search(r"tiktok\.com/@([\w.\-]+)", q, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    if q.startswith("@"):
+        return q[1:]
+    if "tiktok.com" not in q.lower():
+        return q or None
+    opts = {"quiet": True, "skip_download": True, "noprogress": True, "playlist_items": "1"}
+    cookies = get_settings().tiktok_cookies_file
+    if cookies:
+        opts["cookiefile"] = cookies
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(q, download=False)
+    if info.get("_type") == "playlist" and info.get("entries"):
+        info = info["entries"][0] or info
+    url = info.get("uploader_url") or info.get("channel_url") or ""
+    m = re.search(r"@([\w.\-]+)", url)
+    return m.group(1) if m else (info.get("uploader") or None)
+
+
 async def resolve_tiktok(query: str) -> tuple[str, str, str] | None:
     """Вернуть (platform, channel_id=username, title) или None."""
-    username = _norm_username(query)
+    try:
+        username = await asyncio.to_thread(_resolve_username_sync, query)
+    except Exception:
+        return None
     if not username:
         return None
     try:

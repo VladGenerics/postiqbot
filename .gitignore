@@ -8,6 +8,8 @@ venv/
 downloads/
 *.log
 .DS_Store
+cookies.txt
+*cookies*.txt
 
 force_test.py
 pg_diag.txt
