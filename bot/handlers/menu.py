@@ -75,14 +75,16 @@ async def _referral_caption(user_id: int, lang: str, bot: Bot) -> str:
              invited=invited or 0, paid=paid or 0)
 
 
-def _prices(lang: str) -> str:
-    settings = get_settings()
-    return "\n".join(
-        t("price_line", lang, plan=settings.tier_label(days, lang),
-          price=settings.tier_price(days, lang),
-          accounts=tier["accounts"], videos=tier["videos"])
-        for days, tier in settings.sub_tiers.items()
-    )
+def _plan_card(plan: str, lang: str) -> str:
+    """Описание одного плана для экрана выбора периода."""
+    from bot.config import fmt_limit
+
+    s = get_settings()
+    p = s.plans[plan]
+    accs, vids = fmt_limit(p["accounts"]), fmt_limit(p["videos"])
+    return t("plan_card", lang, plan=s.plan_label(plan), accounts=accs, videos=vids,
+             m_rub=p["month"]["rub"], m_star=p["month"]["stars"],
+             f_rub=p["forever"]["rub"], f_star=p["forever"]["stars"])
 
 
 async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, str, InlineKeyboardMarkup]:
@@ -144,13 +146,34 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
     if screen == "buy":
         rows = [
             [InlineKeyboardButton(
-                text=f"{settings.tier_label(days, lang)} — {settings.tier_price(days, lang)}",
-                callback_data=f"buy_sub:{days}",
+                text=f"{settings.plan_label(pl)} — {settings.plans[pl]['month']['rub']} ₽/мес",
+                callback_data=f"nav:plan_{pl}",
             )]
-            for days in settings.sub_tiers
+            for pl in settings.plans
         ]
         rows.append(_back("tariffs", lang))
-        return "tariffs", t("buy_caption", lang, prices=_prices(lang)), InlineKeyboardMarkup(inline_keyboard=rows)
+        return "tariffs", t("buy_caption", lang), InlineKeyboardMarkup(inline_keyboard=rows)
+
+    if screen.startswith("plan_"):
+        pl = screen[len("plan_"):]
+        if pl not in settings.plans:
+            pl = "starter"
+        rows = [
+            [InlineKeyboardButton(
+                text=t("btn_buy_month", lang, rub=settings.plans[pl]["month"]["rub"]),
+                callback_data=f"buy:{pl}:month:rub")],
+            [InlineKeyboardButton(
+                text=t("btn_buy_month_star", lang, stars=settings.plans[pl]["month"]["stars"]),
+                callback_data=f"buy:{pl}:month:stars")],
+            [InlineKeyboardButton(
+                text=t("btn_buy_forever", lang, rub=settings.plans[pl]["forever"]["rub"]),
+                callback_data=f"buy:{pl}:forever:rub")],
+            [InlineKeyboardButton(
+                text=t("btn_buy_forever_star", lang, stars=settings.plans[pl]["forever"]["stars"]),
+                callback_data=f"buy:{pl}:forever:stars")],
+            _back("buy", lang),
+        ]
+        return "tariffs", _plan_card(pl, lang), InlineKeyboardMarkup(inline_keyboard=rows)
 
     if screen == "mysub":
         status = await _status_line(user_id, lang)

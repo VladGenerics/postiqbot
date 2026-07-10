@@ -22,16 +22,13 @@ from bot.db.models import (
     PublishAccount,
     User,
 )
-from bot.config import get_settings
+from bot.config import UNLIMITED, get_settings
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.services.crypto import decrypt
 from bot.services import tiktok_api, tiktok_oauth
 from bot.services.overlay import apply_overlay
-from bot.services.subscription import (
-    inc_videos_used,
-    published_today_by_user,
-)
+from bot.services.subscription import inc_videos_used
 from bot.services.youtube_api import upload_video
 from bot.services.youtube_oauth import credentials_from_refresh_token
 
@@ -97,34 +94,45 @@ async def _claim_due(limit: int) -> list[_Task]:
                     .joinedload(Connection.publish_account)
                     .joinedload(PublishAccount.project)
                 )
-                .limit(limit * 4)
+                .limit(limit * 8)
                 .with_for_update(skip_locked=True, of=Job)
             )
         )
 
         user_ids = [j.connection.user_id for j in candidates]
         admins = get_settings().admin_id_set
-        per_conn_limit = get_settings().per_account_daily_limit
-        user_used = await published_today_by_user(session, user_ids)
-        user_limit = {
-            u.telegram_id: u.tier_videos
+        users = {
+            u.telegram_id: u
             for u in await session.scalars(
                 select(User).where(User.telegram_id.in_(user_ids))
             )
         }
+        conn_limit = {
+            j.connection.id: (
+                UNLIMITED if j.connection.user_id in admins
+                else (users[j.connection.user_id].tier_videos
+                      if j.connection.user_id in users else get_settings().trial_videos)
+            )
+            for j in candidates
+        }
+        prio = {
+            j.connection.user_id: (
+                99 if j.connection.user_id in admins
+                else (users[j.connection.user_id].tier_priority
+                      if j.connection.user_id in users else 0)
+            )
+            for j in candidates
+        }
+        candidates.sort(key=lambda j: (-prio.get(j.connection.user_id, 0), j.scheduled_at))
 
         for job in candidates:
             if len(tasks) >= limit:
                 break
             conn = job.connection
             uid = conn.user_id
-            is_admin = uid in admins
             acc = conn.publish_account
-            if conn_used.get(conn.id, 0) >= per_conn_limit:
+            if conn_used.get(conn.id, 0) >= conn_limit.get(conn.id, get_settings().trial_videos):
                 continue
-            if not is_admin:
-                if user_used.get(uid, 0) >= user_limit.get(uid, 0):
-                    continue
             common = dict(
                 job_id=job.id,
                 user_id=conn.user_id,
@@ -159,7 +167,6 @@ async def _claim_due(limit: int) -> list[_Task]:
             else:
                 continue
             conn_used[conn.id] = conn_used.get(conn.id, 0) + 1
-            user_used[uid] = user_used.get(uid, 0) + 1
     return tasks
 
 

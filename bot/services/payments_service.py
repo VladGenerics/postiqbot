@@ -38,10 +38,7 @@ async def finalize_payment(bot: Bot, payment_id: int) -> bool:
     if not claimed:
         return False
 
-    tier = get_settings().sub_tiers.get(payment.days, {"accounts": 1, "videos": 5})
-    until = await grant_subscription(
-        payment.user_id, payment.days, accounts=tier["accounts"], videos=tier["videos"]
-    )
+    until = await grant_subscription(payment.user_id, payment.days, plan=payment.plan)
     try:
         lang = await user_lang(payment.user_id)
         await bot.send_message(

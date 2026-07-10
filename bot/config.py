@@ -5,6 +5,13 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+UNLIMITED = 999_999
+
+
+def fmt_limit(n: int) -> str:
+    """Число или ∞ для безлимита."""
+    return "∞" if n >= UNLIMITED else str(n)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -69,32 +76,34 @@ class Settings(BaseSettings):
 
     trial_days: int = 7
     trial_accounts: int = 1
-    trial_videos: int = 5
+    trial_videos: int = 4
 
     referral_bonus_days: int = 7
 
     @property
-    def sub_tiers(self) -> dict[int, dict]:
-        """{дни: {stars, rub, usd, accounts, videos}} — videos = лимит публикаций в ДЕНЬ."""
+    def plans(self) -> dict[str, dict]:
+        """Тарифные планы."""
         return {
-            7: {"stars": 60, "rub": 99, "usd": 0.99, "accounts": 2, "videos": 8},
-            30: {"stars": 120, "rub": 199, "usd": 1.99, "accounts": 5, "videos": 40},
-            self.forever_days: {"stars": 360, "rub": 599, "usd": 5.99, "accounts": 25, "videos": 100},
+            "starter": {"emoji": "🟢", "name": "Starter", "accounts": 4, "videos": 4, "priority": 0,
+                        "month": {"rub": 99, "stars": 59}, "forever": {"rub": 399, "stars": 259}},
+            "pro": {"emoji": "🔵", "name": "Pro", "accounts": 10, "videos": 10, "priority": 1,
+                    "month": {"rub": 199, "stars": 129}, "forever": {"rub": 799, "stars": 499}},
+            "premium": {"emoji": "🟣", "name": "Premium", "accounts": UNLIMITED, "videos": UNLIMITED, "priority": 2,
+                        "month": {"rub": 399, "stars": 259}, "forever": {"rub": 1499, "stars": 999}},
         }
 
-    def tier_label(self, days: int, lang: str = "ru") -> str:
-        """Читаемое название срока тарифа (для кнопок и списка)."""
-        if days >= self.forever_days:
-            return "♾️ Навсегда" if lang == "ru" else "♾️ Forever"
-        suffix = "дн." if lang == "ru" else "d"
-        return f"📅 {days} {suffix}"
+    def plan_days(self, period: str) -> int:
+        """Срок в днях по периоду: forever → forever_days, иначе 30."""
+        return self.forever_days if period == "forever" else 30
 
-    def tier_price(self, days: int, lang: str = "ru") -> str:
-        """Цена тарифа строкой: ₽ для ru, $ для en."""
-        tier = self.sub_tiers.get(days, {})
-        if lang == "en":
-            return f"${tier.get('usd', 0):.2f}"
-        return f"{tier.get('rub', 0)} ₽"
+    def plan_price(self, plan: str, period: str, currency: str) -> int:
+        """Цена плана: currency = 'rub' | 'stars'."""
+        p = self.plans[plan][period]
+        return p["stars"] if currency == "stars" else p["rub"]
+
+    def plan_label(self, plan: str) -> str:
+        p = self.plans[plan]
+        return f"{p['emoji']} {p['name']}"
 
     @property
     def admin_id_set(self) -> set[int]:

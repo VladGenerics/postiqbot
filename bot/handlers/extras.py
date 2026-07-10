@@ -70,30 +70,17 @@ async def show_guide(callback: CallbackQuery) -> None:
 
 async def open_subscription(message: Message, user_id: int) -> None:
     await ensure_user(user_id)
-    settings = get_settings()
+    s = get_settings()
     lang = await user_lang(user_id)
-    if user_id in settings.admin_id_set:
-        status = t("status_admin", lang)
-    else:
-        async with get_session() as session:
-            user = await session.get(User, user_id)
-        status = status_text(user, lang) if user else "—"
     rows = [
         [InlineKeyboardButton(
-            text=f"{settings.tier_label(days, lang)} — {settings.tier_price(days, lang)}",
-            callback_data=f"buy_sub:{days}",
+            text=f"{s.plan_label(pl)} — {s.plans[pl]['month']['rub']} ₽/мес",
+            callback_data=f"nav:plan_{pl}",
         )]
-        for days in settings.sub_tiers
+        for pl in s.plans
     ]
-    prices = "\n".join(
-        t("price_line", lang, plan=settings.tier_label(days, lang),
-          price=settings.tier_price(days, lang),
-          accounts=tier["accounts"], videos=tier["videos"])
-        for days, tier in settings.sub_tiers.items()
-    )
-    caption = t("tariffs_caption", lang, status=status, prices=prices)
     await send_with_icon(
-        message, "tariffs", caption,
+        message, "tariffs", t("buy_caption", lang),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows), lang=lang,
     )
 
@@ -158,94 +145,73 @@ async def documents_menu(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("buy_sub:"))
-async def buy_subscription(callback: CallbackQuery) -> None:
-    days = int(callback.data.split(":", 1)[1])
+def _parse_buy(data: str) -> tuple[str, str, str] | None:
+    """buy:<plan>:<period>:<currency> → (plan, period, currency) с валидацией."""
+    parts = data.split(":")
+    if len(parts) != 4:
+        return None
+    _, plan, period, currency = parts
+    s = get_settings()
+    if plan not in s.plans or period not in ("month", "forever") or currency not in ("rub", "stars"):
+        return None
+    return plan, period, currency
+
+
+@router.callback_query(F.data.startswith("buy:"))
+async def buy_plan(callback: CallbackQuery, bot: Bot) -> None:
+    parsed = _parse_buy(callback.data)
     lang = await user_lang(callback.from_user.id)
-    tier = get_settings().sub_tiers.get(days)
-    if not tier:
+    if not parsed:
         await callback.answer(t("bad_tariff", lang), show_alert=True)
         return
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(
-            text=t("btn_pay_rub", lang, price=get_settings().tier_price(days, lang)),
-            callback_data=f"pay_rub:{days}"
-        )],
-        [InlineKeyboardButton(
-            text=t("btn_pay_stars", lang, stars=tier["stars"]), callback_data=f"pay_stars:{days}"
-        )],
-    ])
-    plan = get_settings().tier_label(days, lang)
-    await callback.message.answer(t("pay_choose", lang, plan=plan), reply_markup=kb)
-    await callback.answer()
+    plan, period, currency = parsed
+    s = get_settings()
+    days = s.plan_days(period)
+    label = s.plan_label(plan)
+    period_txt = t("inv_period_forever", lang) if period == "forever" else t("inv_period_month", lang)
 
-
-@router.callback_query(F.data.startswith("pay_stars:"))
-async def pay_stars(callback: CallbackQuery, bot: Bot) -> None:
-    days = int(callback.data.split(":", 1)[1])
-    lang = await user_lang(callback.from_user.id)
-    tier = get_settings().sub_tiers.get(days)
-    if not tier:
-        await callback.answer(t("bad_tariff", lang), show_alert=True)
+    if currency == "stars":
+        await bot.send_invoice(
+            chat_id=callback.from_user.id,
+            title=t("inv_title", lang, plan=label),
+            description=t("inv_desc", lang, period=period_txt),
+            payload=f"sub:{plan}:{days}",
+            provider_token="",
+            currency="XTR",
+            prices=[LabeledPrice(label=t("inv_label", lang, plan=label),
+                                 amount=s.plan_price(plan, period, "stars"))],
+        )
+        await callback.answer()
         return
-    plan = get_settings().tier_label(days, lang)
-    forever = days >= get_settings().forever_days
-    period = t("inv_period_forever", lang) if forever else t("inv_period_days", lang, days=days)
-    await bot.send_invoice(
-        chat_id=callback.from_user.id,
-        title=t("inv_title", lang, plan=plan),
-        description=t("inv_desc", lang, period=period),
-        payload=f"sub:{days}",
-        provider_token="",
-        currency="XTR",
-        prices=[LabeledPrice(label=t("inv_label", lang, plan=plan), amount=tier["stars"])],
-    )
-    await callback.answer()
 
-
-@router.callback_query(F.data.startswith("pay_rub:"))
-async def pay_rub(callback: CallbackQuery, bot: Bot) -> None:
-    days = int(callback.data.split(":", 1)[1])
-    tier = get_settings().sub_tiers.get(days)
-    lang = await user_lang(callback.from_user.id)
-    if not tier:
-        await callback.answer(t("bad_tariff", lang), show_alert=True)
-        return
     if not platega.is_configured():
         await callback.message.answer(t("rub_soon", lang))
         await callback.answer()
         return
-
-    amount = tier["rub"]
-    plan = get_settings().tier_label(days, lang)
+    amount = s.plan_price(plan, period, "rub")
     me = await bot.get_me()
-    return_url = f"https://t.me/{me.username}"
     try:
         tx_id, redirect = await platega.create_payment(
             amount=amount,
-            description=f"PostiqBot подписка — {plan}",
+            description=f"PostiqBot {label} ({period_txt})",
             user_id=callback.from_user.id,
             username=f"@{callback.from_user.username}" if callback.from_user.username else "",
-            return_url=return_url,
+            return_url=f"https://t.me/{me.username}",
         )
     except Exception:  # noqa: BLE001
         logger.exception("Platega create_payment failed")
         await callback.message.answer(t("pay_error", lang))
         await callback.answer()
         return
-
     async with get_session() as session:
         session.add(Payment(
-            user_id=callback.from_user.id, days=days, amount=amount,
+            user_id=callback.from_user.id, days=days, plan=plan, amount=amount,
             currency="RUB", provider="platega", provider_payment_id=tx_id,
         ))
-
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t("btn_pay_now", lang, amount=amount), url=redirect)]
     ])
-    await callback.message.answer(
-        t("pay_link", lang, amount=amount, plan=plan), reply_markup=kb
-    )
+    await callback.message.answer(t("pay_link", lang, amount=amount, plan=label), reply_markup=kb)
     await callback.answer()
 
 
@@ -257,17 +223,15 @@ async def pre_checkout(query: PreCheckoutQuery, bot: Bot) -> None:
 @router.message(F.successful_payment)
 async def on_paid(message: Message, bot: Bot) -> None:
     payload = message.successful_payment.invoice_payload
+    parts = payload.split(":")
+    plan = parts[1] if len(parts) >= 3 and parts[1] in get_settings().plans else "starter"
     try:
-        days = int(payload.split(":", 1)[1])
+        days = int(parts[2])
     except (IndexError, ValueError):
         days = 30
-    settings = get_settings()
-    tier = settings.sub_tiers.get(days, {"accounts": 5, "videos": 40})
-    until = await grant_subscription(
-        message.from_user.id, days, accounts=tier["accounts"], videos=tier["videos"]
-    )
+    until = await grant_subscription(message.from_user.id, days, plan=plan)
     lang = await user_lang(message.from_user.id)
-    if days >= settings.forever_days:
+    if days >= get_settings().forever_days:
         active = t("paid_forever", lang)
     else:
         active = t("paid_until", lang, date=f"{until:%d.%m.%Y}")

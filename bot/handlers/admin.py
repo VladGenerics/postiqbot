@@ -62,20 +62,21 @@ async def cmd_addproject(message: Message, command: CommandObject) -> None:
 
 @router.message(Command("grant"))
 async def cmd_grant(message: Message, command: CommandObject) -> None:
-    """/grant <user_id> <дней> — вручную продлить подписку пользователю."""
+    """/grant <user_id> <дней> [starter|pro|premium] — выдать/продлить тариф."""
     if not _is_admin(message.from_user.id):
         return
     parts = (command.args or "").split()
-    if len(parts) != 2 or not all(p.lstrip("-").isdigit() for p in parts):
-        await message.answer("Использование: <code>/grant &lt;user_id&gt; &lt;дней&gt;</code>")
+    if len(parts) < 2 or not parts[0].lstrip("-").isdigit() or not parts[1].lstrip("-").isdigit():
+        await message.answer(
+            "Использование: <code>/grant &lt;user_id&gt; &lt;дней&gt; [starter|pro|premium]</code>"
+        )
         return
     user_id, days = int(parts[0]), int(parts[1])
-    top = get_settings().sub_tiers.get(30, {"accounts": 5, "videos": 300})
-    until = await grant_subscription(
-        user_id, days, accounts=top["accounts"], videos=top["videos"]
-    )
+    plan = parts[2] if len(parts) >= 3 and parts[2] in get_settings().plans else "premium"
+    until = await grant_subscription(user_id, days, plan=plan)
     await message.answer(
-        f"✅ Пользователю <code>{user_id}</code> доступ продлён до <b>{until:%d.%m.%Y}</b>."
+        f"✅ Пользователю <code>{user_id}</code> выдан {get_settings().plan_label(plan)} "
+        f"до <b>{until:%d.%m.%Y}</b>."
     )
 
 

@@ -75,8 +75,7 @@ async def active_user_ids(telegram_ids: list[int]) -> set[int]:
 async def grant_subscription(
     telegram_id: int,
     days: int,
-    accounts: int | None = None,
-    videos: int | None = None,
+    plan: str | None = None,
 ) -> datetime:
     """Продлить подписку на days дней."""
     async with get_session() as session:
@@ -88,10 +87,14 @@ async def grant_subscription(
             user.subscription_until and user.subscription_until > _now()
         ) else _now()
         user.subscription_until = base + timedelta(days=days)
-        if accounts is not None and videos is not None:
-            user.tier_accounts = accounts
-            user.tier_videos = videos
-            user.videos_used = 0
+        if plan is not None:
+            p = get_settings().plans.get(plan)
+            if p:
+                user.tier_accounts = p["accounts"]
+                user.tier_videos = p["videos"]
+                user.tier_priority = p["priority"]
+                user.tier_plan = plan
+                user.videos_used = 0
         return user.subscription_until
 
 
@@ -139,28 +142,31 @@ async def inc_videos_used(telegram_id: int) -> None:
 
 
 def status_text(user: User, lang: str = "ru") -> str:
+    from bot.config import fmt_limit
+
+    s = get_settings()
     until = access_until(user)
     now = _now()
     forever = until is not None and (until - now).days > 3650
-    per_acc = get_settings().per_account_daily_limit
+    accs = fmt_limit(user.tier_accounts)
+    vids = fmt_limit(user.tier_videos)
+    plan_name = s.plans[user.tier_plan]["name"] if user.tier_plan in s.plans else None
     if lang == "en":
         if until is None or until <= now:
             return "❌ Access inactive. Buy a subscription so the bot can publish."
-        src = "subscription" if (user.subscription_until and user.subscription_until > now) else "trial"
+        src = f"{plan_name} plan" if plan_name else "trial"
         expiry = "forever ♾️" if forever else f"until <b>{until:%d.%m.%Y}</b> (~{(until - now).days}d)"
         return (
             f"✅ Access active ({src}) {expiry}\n"
-            f"📦 Accounts limit: <b>{user.tier_accounts}</b>\n"
-            f"🎬 Daily limit: <b>{user.tier_videos}</b> videos/day "
-            f"(max {per_acc}/account)"
+            f"📦 Channels: <b>{accs}</b>\n"
+            f"🎬 Daily limit: <b>{vids}</b> videos/day per connection"
         )
     if until is None or until <= now:
         return "❌ Доступ неактивен. Оформи подписку, чтобы бот публиковал видео."
-    src = "подписка" if (user.subscription_until and user.subscription_until > now) else "триал"
+    src = f"тариф {plan_name}" if plan_name else "триал"
     expiry = "навсегда ♾️" if forever else f"до <b>{until:%d.%m.%Y}</b> (~{(until - now).days} дн.)"
     return (
         f"✅ Доступ активен ({src}) {expiry}\n"
-        f"📦 Лимит аккаунтов: <b>{user.tier_accounts}</b>\n"
-        f"🎬 Дневной лимит: <b>{user.tier_videos}</b> видео/день "
-        f"(до {per_acc} на аккаунт)"
+        f"📦 Каналов: <b>{accs}</b>\n"
+        f"🎬 Дневной лимит: <b>{vids}</b> видео/день на связку"
     )

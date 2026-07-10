@@ -66,9 +66,32 @@ T: dict[str, dict[str, str]] = {
         "en": "⚙️ <b>More</b>\n\nChoose a section 👇",
     },
     "buy_caption": {
-        "ru": "💎 <b>Купить тариф</b>\n\n{prices}\n\nВыбери тариф ниже 👇",
-        "en": "💎 <b>Buy a plan</b>\n\n{prices}\n\nPick a plan below 👇",
+        "ru": "💎 <b>Тарифы</b>\n\nВыбери план 👇",
+        "en": "💎 <b>Plans</b>\n\nChoose a plan 👇",
     },
+    "plan_card": {
+        "ru": (
+            "{plan}\n\n"
+            "📦 Каналов: <b>{accounts}</b>\n"
+            "🎬 <b>{videos}</b> видео/день на связку\n\n"
+            "📅 Месяц: <b>{m_rub} ₽</b> / {m_star} ⭐\n"
+            "♾️ Навсегда: <b>{f_rub} ₽</b> / {f_star} ⭐\n\n"
+            "Выбери способ оплаты 👇"
+        ),
+        "en": (
+            "{plan}\n\n"
+            "📦 Channels: <b>{accounts}</b>\n"
+            "🎬 <b>{videos}</b> videos/day per connection\n\n"
+            "📅 Month: <b>{m_rub} ₽</b> / {m_star} ⭐\n"
+            "♾️ Forever: <b>{f_rub} ₽</b> / {f_star} ⭐\n\n"
+            "Choose a payment option 👇"
+        ),
+    },
+    "btn_buy_month": {"ru": "📅 Месяц — {rub} ₽", "en": "📅 Month — {rub} ₽"},
+    "btn_buy_month_star": {"ru": "📅 Месяц — {stars} ⭐", "en": "📅 Month — {stars} ⭐"},
+    "btn_buy_forever": {"ru": "♾️ Навсегда — {rub} ₽", "en": "♾️ Forever — {rub} ₽"},
+    "btn_buy_forever_star": {"ru": "♾️ Навсегда — {stars} ⭐", "en": "♾️ Forever — {stars} ⭐"},
+    "inv_period_month": {"ru": "на месяц", "en": "for a month"},
     "my_sub_body": {
         "ru": "⭐ <b>Моя подписка</b>\n\n{status}",
         "en": "⭐ <b>My subscription</b>\n\n{status}",
