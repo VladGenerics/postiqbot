@@ -1,4 +1,4 @@
-"""AI-генерация заголовка и описания для YouTube (Anthropic-совместимый API)."""
+"""AI-генерация заголовка и описания для YouTube (OpenAI-совместимый API, freemodel)."""
 from __future__ import annotations
 
 import json
@@ -43,24 +43,26 @@ async def generate_meta(source_title: str, platform_hint: str = "") -> Generated
     )
     body = {
         "model": s.ai_model,
-        "max_tokens": 400,
-        "system": _SYSTEM,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [
+            {"role": "system", "content": _SYSTEM},
+            {"role": "user", "content": prompt},
+        ],
     }
     headers = {
-        "x-api-key": s.ai_api_key,
-        "anthropic-version": "2023-06-01",
+        "Authorization": f"Bearer {s.ai_api_key}",
         "content-type": "application/json",
     }
-    url = s.ai_base_url.rstrip("/") + "/v1/messages"
+    url = s.ai_base_url.rstrip("/") + "/v1/chat/completions"
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=40) as client:
             resp = await client.post(url, json=body, headers=headers)
         data = resp.json()
-        parts = data.get("content") or []
-        text = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
+        choices = data.get("choices") or []
+        text = ""
+        if choices:
+            text = (choices[0].get("message") or {}).get("content", "").strip()
         if not text:
-            logger.warning("AI: пустой ответ: %s", str(data)[:300])
+            logger.warning("AI: пустой ответ (%s): %s", resp.status_code, str(data)[:300])
             return None
         obj = _extract_json(text)
         title = (obj.get("title") or "").strip()[:100]

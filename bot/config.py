@@ -67,8 +67,8 @@ class Settings(BaseSettings):
     download_dir: str = "downloads"
 
     ai_api_key: str = ""
-    ai_base_url: str = "https://cc.freemodel.dev"
-    ai_model: str = "claude-3-5-haiku-20241022"
+    ai_base_url: str = "https://api.freemodel.dev"
+    ai_model: str = "gpt-5.5"
     ai_titles_enabled: bool = False
 
     admin_ids: str = ""
