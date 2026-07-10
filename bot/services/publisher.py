@@ -44,6 +44,7 @@ class _Task:
     platform: str
     refresh_token: str
     privacy: str = "private"
+    description: str = ""
     client_id: str = ""
     client_secret: str = ""
     overlay_file_id: str | None = None
@@ -197,7 +198,7 @@ def _yt_upload(task: _Task, path: str) -> str:
         task.refresh_token, task.client_id, task.client_secret
     )
     return upload_video(
-        creds, path, task.title, description="", privacy_status=task.privacy
+        creds, path, task.title, description=task.description, privacy_status=task.privacy
     )
 
 
@@ -252,6 +253,13 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
             logger.warning("Файл job=%d пропал — возвращаю на скачивание", task.job_id)
             await _requeue(task.job_id)
             continue
+        if task.platform == "youtube" and task.user_id in get_settings().admin_id_set:
+            from bot.services.ai_meta import generate_meta, is_configured
+            if is_configured():
+                meta = await generate_meta(task.title)
+                if meta:
+                    task.title, task.description = meta.title, meta.description
+                    logger.info("AI title job=%d → %s", task.job_id, meta.title)
         try:
             publish_path, extra_files = await _prepare_path(bot, task)
             remote_id = await _publish(task, publish_path)

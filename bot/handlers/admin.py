@@ -363,6 +363,31 @@ async def cmd_private(message: Message, command: CommandObject) -> None:
         )
 
 
+@router.message(Command("gen"))
+async def cmd_gen(message: Message, command: CommandObject) -> None:
+    """/gen <текст> — тест AI-генерации заголовка+описания (только админы)."""
+    if not _is_admin(message.from_user.id):
+        return
+    from bot.services.ai_meta import generate_meta, is_configured
+
+    if not is_configured():
+        await message.answer("⚠️ AI не настроен: задай <code>AI_API_KEY</code> в .env.")
+        return
+    src = (command.args or "").strip()
+    if not src:
+        await message.answer("Использование: <code>/gen &lt;исходный заголовок&gt;</code>")
+        return
+    await message.answer("⏳ Генерирую…")
+    meta = await generate_meta(src)
+    if meta is None:
+        await message.answer("❌ Не удалось сгенерировать (см. логи).")
+        return
+    await message.answer(
+        f"🎬 <b>Заголовок:</b>\n{meta.title}\n\n"
+        f"📝 <b>Описание:</b>\n{meta.description}"
+    )
+
+
 @router.message(Command("help"))
 async def cmd_help(message: Message) -> None:
     """/help — список админ-команд. Виден и работает ТОЛЬКО для админов."""
@@ -384,6 +409,7 @@ async def cmd_help(message: Message) -> None:
         "(умолч. 50, макс. 1000)\n"
         "<b>/republish</b> &lt;connection_id&gt; — заново опубликовать последнее "
         "видео связки (если удалил вручную)\n"
+        "<b>/gen</b> &lt;заголовок&gt; — тест AI-генерации заголовка+описания\n"
         "<b>/stats</b> — сводка: пользователи, аккаунты, связки, публикации\n"
         "<b>/private</b> on|off — пред-запуск: бот только для админов\n"
         "<b>/help</b> — этот список\n\n"
