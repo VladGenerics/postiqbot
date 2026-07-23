@@ -85,6 +85,22 @@ class Settings(BaseSettings):
 
     referral_bonus_days: int = 7
 
+    gate_enabled: bool = True
+    gate_channel: str = "@postiq_channel"
+    gate_channel_url: str = "https://t.me/postiq_channel"
+
+    @property
+    def gate_link(self) -> str:
+        """Ссылка «Перейти в канал»: gate_channel_url или https://t.me/<user>."""
+        if self.gate_channel_url:
+            return self.gate_channel_url
+        ch = self.gate_channel.lstrip("@")
+        return f"https://t.me/{ch}" if ch and not ch.startswith("-") else ""
+
+    @property
+    def gate_active(self) -> bool:
+        return self.gate_enabled and bool(self.gate_channel)
+
     @property
     def plans(self) -> dict[str, dict]:
         """Тарифные планы."""

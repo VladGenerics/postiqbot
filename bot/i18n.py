@@ -310,14 +310,14 @@ T: dict[str, dict[str, str]] = {
         "ru": (
             "🎁 <b>Реферальная программа</b>\n\n"
             "Приглашай друзей! Когда приглашённый оформит подписку — тебе "
-            "<b>+{bonus} дней</b> доступа.\n\n"
+            "начислят <b>такой же тариф на тот же срок</b>.\n\n"
             "Твоя ссылка:\n{link}\n\n"
             "👥 Приглашено: <b>{invited}</b>\n💳 Оплатили (бонус начислен): <b>{paid}</b>"
         ),
         "en": (
             "🎁 <b>Referral program</b>\n\n"
             "Invite friends! When an invited user buys a subscription, you get "
-            "<b>+{bonus} days</b> of access.\n\n"
+            "<b>the same plan for the same period</b>.\n\n"
             "Your link:\n{link}\n\n"
             "👥 Invited: <b>{invited}</b>\n💳 Paid (bonus granted): <b>{paid}</b>"
         ),
@@ -475,6 +475,30 @@ T: dict[str, dict[str, str]] = {
     "c_ovl_removed_toast": {"ru": "Оверлей убран", "en": "Overlay removed"},
     "c_not_found_short": {"ru": "Не найдено", "en": "Not found"},
     "c_btn_backfill": {"ru": "📥 Залить архив", "en": "📥 Backfill"},
+    "bf_choose_daily": {
+        "ru": "📅 Сколько видео публиковать в день?",
+        "en": "📅 How many videos to publish per day?",
+    },
+    "gate_prompt": {
+        "ru": (
+            "👋 Привет! Чтобы получить <b>7 дней бесплатного доступа</b> к PostiqBot, "
+            "подпишись на наш канал 👇"
+        ),
+        "en": (
+            "👋 Hi! To get <b>7 days of free access</b> to PostiqBot, "
+            "subscribe to our channel 👇"
+        ),
+    },
+    "gate_btn_join": {"ru": "📢 Перейти в канал", "en": "📢 Go to channel"},
+    "gate_btn_check": {"ru": "✅ Я подписался — проверить", "en": "✅ I subscribed — check"},
+    "gate_ok": {
+        "ru": "✅ Подписка подтверждена! Тебе начислено <b>7 дней</b> бесплатного доступа. Добро пожаловать! 🎉",
+        "en": "✅ Subscription confirmed! You've been granted <b>7 days</b> of free access. Welcome! 🎉",
+    },
+    "gate_fail": {
+        "ru": "❌ Ты ещё не подписан на канал. Подпишись и нажми «Проверить» снова.",
+        "en": "❌ You haven't subscribed yet. Subscribe and tap «Check» again.",
+    },
     "bf_choose": {
         "ru": (
             "📥 <b>Залить архив источника</b>\n"
@@ -573,11 +597,11 @@ T: dict[str, dict[str, str]] = {
     },
     "ref_reward": {
         "ru": (
-            "🎁 Твой приглашённый оформил подписку — тебе <b>+{days} дней</b>!\n"
+            "🎁 Твой приглашённый оформил подписку <b>{plan}</b> — тебе тоже <b>+{days} дней</b> того же тарифа!\n"
             "Доступ активен до <b>{date}</b>."
         ),
         "en": (
-            "🎁 Your referral bought a subscription — you get <b>+{days} days</b>!\n"
+            "🎁 Your referral bought a <b>{plan}</b> subscription — you get <b>+{days} days</b> of the same plan!\n"
             "Access is active until <b>{date}</b>."
         ),
     },

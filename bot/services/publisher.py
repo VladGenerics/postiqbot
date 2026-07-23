@@ -231,9 +231,13 @@ async def _prepare_path(bot: Bot, task: _Task) -> tuple[str, list[str]]:
     if not (task.overlay_file_id and task.overlay_position):
         return task.local_path, []
     overlay_tmp = await _download_overlay(bot, task.overlay_file_id)
-    overlaid = await asyncio.to_thread(
-        apply_overlay, task.local_path, overlay_tmp, task.overlay_position, task.overlay_scale
-    )
+    try:
+        overlaid = await asyncio.to_thread(
+            apply_overlay, task.local_path, overlay_tmp, task.overlay_position, task.overlay_scale
+        )
+    except Exception:  # noqa: BLE001 — не оставляем скачанный оверлей на диске
+        _cleanup(overlay_tmp)
+        raise
     return overlaid, [overlay_tmp, overlaid]
 
 

@@ -1,8 +1,10 @@
 """Наложение картинки/GIF/анимации на видео через ffmpeg."""
 from __future__ import annotations
 
+import glob
 import os
 import subprocess
+import tempfile
 
 _POSITIONS = {
     "top_left": ("{M}", "{M}"),
@@ -39,6 +41,47 @@ def _trim_transparent(path: str) -> str | None:
         return out
     except Exception:
         return None
+
+
+def _representative_frame(path: str) -> str | None:
+    """Для анимированного оверлея выбрать «наполненный» кадр (PNG) для превью."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext not in _ANIMATED:
+        return None
+    tmp_dir = tempfile.mkdtemp(prefix="ovlframes_")
+    try:
+        from PIL import Image
+
+        pattern = os.path.join(tmp_dir, "f_%04d.png")
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", path, "-frames:v", "60", "-vsync", "0", pattern],
+            capture_output=True, text=True, check=True,
+        )
+        frames = sorted(glob.glob(os.path.join(tmp_dir, "f_*.png")))
+        best_path, best_score = None, -1
+        for fp in frames:
+            img = Image.open(fp).convert("RGBA")
+            alpha_hist = img.getchannel("A").histogram()
+            visible = sum(alpha_hist[33:])
+            if visible > best_score:
+                best_path, best_score = fp, visible
+        if best_path is None:
+            return None
+        out = f"{os.path.splitext(path)[0]}_frame.png"
+        Image.open(best_path).convert("RGBA").save(out)
+        return out
+    except Exception:
+        return None
+    finally:
+        for fp in glob.glob(os.path.join(tmp_dir, "*")):
+            try:
+                os.remove(fp)
+            except OSError:
+                pass
+        try:
+            os.rmdir(tmp_dir)
+        except OSError:
+            pass
 
 
 def _video_width(path: str) -> int:
@@ -120,6 +163,8 @@ def make_preview(
     overlay_path: str, position: str, scale_pct: int, out_path: str
 ) -> str:
     """JPG-превью: оверлей прямо на экране телефона, строго в пределах экрана."""
+    frame = _representative_frame(overlay_path)
+    overlay_path = frame or overlay_path
     trimmed = _trim_transparent(overlay_path)
     overlay_path = trimmed or overlay_path
     sx, sy, sw, sh = _SCREEN_X, _SCREEN_Y, _SCREEN_W, _SCREEN_H
@@ -144,6 +189,11 @@ def make_preview(
     if trimmed:
         try:
             os.remove(trimmed)
+        except OSError:
+            pass
+    if frame:
+        try:
+            os.remove(frame)
         except OSError:
             pass
     return out_path

@@ -21,6 +21,7 @@ from bot.handlers import (
     sources,
     start,
 )
+from bot.middlewares.channel_gate import ChannelGateMiddleware
 from bot.middlewares.private_mode import PrivateModeMiddleware
 from bot.scheduler import setup_scheduler
 from bot.web.oauth_callback import build_web_app
@@ -37,6 +38,8 @@ def build_dispatcher() -> Dispatcher:
     allowed = get_settings().admin_id_set
     dp.message.outer_middleware(PrivateModeMiddleware(allowed))
     dp.callback_query.outer_middleware(PrivateModeMiddleware(allowed))
+    dp.message.outer_middleware(ChannelGateMiddleware())
+    dp.callback_query.outer_middleware(ChannelGateMiddleware())
     dp.include_router(start.router)
     dp.include_router(menu.router)
     dp.include_router(navigation.router)

@@ -236,29 +236,30 @@ async def on_paid(message: Message, bot: Bot) -> None:
     else:
         active = t("paid_until", lang, date=f"{until:%d.%m.%Y}")
     await message.answer(t("paid_ok", lang, active=active))
-    await _reward_referrer(bot, message.from_user.id)
+    await _reward_referrer(bot, message.from_user.id, plan=plan, days=days)
 
 
-async def reward_referrer_public(bot: Bot, payer_id: int) -> None:
+async def reward_referrer_public(bot: Bot, payer_id: int, plan: str | None, days: int) -> None:
     """Публичная обёртка для вызова из payment_callback."""
-    await _reward_referrer(bot, payer_id)
+    await _reward_referrer(bot, payer_id, plan, days)
 
 
-async def _reward_referrer(bot: Bot, payer_id: int) -> None:
+async def _reward_referrer(bot: Bot, payer_id: int, plan: str | None, days: int) -> None:
     """Начислить бонус пригласившему при ПЕРВОЙ оплате приглашённого."""
-    settings = get_settings()
     async with get_session() as session:
         payer = await session.get(User, payer_id)
         if not payer or not payer.referred_by or payer.referral_rewarded:
             return
         payer.referral_rewarded = True
         referrer_id = payer.referred_by
-    until = await grant_subscription(referrer_id, settings.referral_bonus_days)
+    until = await grant_subscription(referrer_id, days, plan=plan)
     lang = await user_lang(referrer_id)
+    settings = get_settings()
+    plan_name = settings.plans[plan]["name"] if plan and plan in settings.plans else None
     try:
         await bot.send_message(
             referrer_id,
-            t("ref_reward", lang, days=settings.referral_bonus_days, date=f"{until:%d.%m.%Y}"),
+            t("ref_reward", lang, plan=plan_name or "trial", days=days, date=f"{until:%d.%m.%Y}"),
         )
     except Exception:  # noqa: BLE001
         pass

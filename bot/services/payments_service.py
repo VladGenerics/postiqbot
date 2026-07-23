@@ -48,7 +48,7 @@ async def finalize_payment(bot: Bot, payment_id: int) -> bool:
     except Exception:  # noqa: BLE001
         pass
     from bot.handlers.extras import reward_referrer_public
-    await reward_referrer_public(bot, payment.user_id)
+    await reward_referrer_public(bot, payment.user_id, plan=payment.plan, days=payment.days)
     logger.info("Платёж #%d активирован (user=%d)", payment_id, payment.user_id)
     return True
 

@@ -38,7 +38,7 @@ async def _last_scheduled(conn_id: int) -> datetime | None:
         )
 
 
-async def backfill_connection(conn_id: int, limit: int, user_id: int | None = None) -> BackfillResult:
+async def backfill_connection(conn_id: int, limit: int, user_id: int | None = None, daily_limit: int | None = None) -> BackfillResult:
     """Поставить в очередь до `limit` архивных видео источника связки."""
     limit = max(1, min(limit, MAX_BACKFILL))
     async with get_session() as session:
@@ -70,12 +70,21 @@ async def backfill_connection(conn_id: int, limit: int, user_id: int | None = No
     running = await _last_scheduled(conn_id)
     created = 0
     first_at = last_at = None
+    day_base = (running or now).replace(hour=0, minute=0, second=0, microsecond=0)
+    day_offset = 0
+    day_count = 0
     async with get_session() as session:
         for entry in entries:
-            sched = compute_scheduled_at(
-                mode=sched_mode, interval_minutes=interval,
-                post_times=post_times, tz_name=tz, last_scheduled=running, now=now,
-            )
+            if daily_limit is not None:
+                if day_count >= daily_limit:
+                    day_offset += 1
+                    day_count = 0
+                sched = max(now, day_base + timedelta(days=day_offset))
+            else:
+                sched = compute_scheduled_at(
+                    mode=sched_mode, interval_minutes=interval,
+                    post_times=post_times, tz_name=tz, last_scheduled=running, now=now,
+                )
             stmt = (
                 insert(Job)
                 .values(
@@ -93,7 +102,8 @@ async def backfill_connection(conn_id: int, limit: int, user_id: int | None = No
                 created += 1
                 first_at = first_at or sched
                 last_at = sched
-            running = sched
+                running = sched
+                day_count += 1
 
     return BackfillResult(
         ok=True, created=created, title=source.channel_title,

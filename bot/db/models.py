@@ -50,6 +50,7 @@ class User(Base):
     tier_plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
     lang: Mapped[str] = mapped_column(String(2), default="ru")
     expiry_warned: Mapped[bool] = mapped_column(Boolean, default=False)
+    channel_verified: Mapped[bool] = mapped_column(Boolean, default=False)
 
     publish_accounts: Mapped[list["PublishAccount"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
