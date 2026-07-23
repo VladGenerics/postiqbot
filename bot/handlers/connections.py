@@ -266,19 +266,10 @@ async def confirm_delete(callback: CallbackQuery) -> None:
 
 async def _backfill_count_kb(conn_id: int, lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=str(n), callback_data=f"bf_n:{conn_id}:{n}") for n in (25, 50, 100)],
-        [InlineKeyboardButton(text="300", callback_data=f"bf_n:{conn_id}:300"),
-         InlineKeyboardButton(text=t("bf_all", lang), callback_data=f"bf_n:{conn_id}:1000")],
+        [InlineKeyboardButton(text=str(n), callback_data=f"bf:{conn_id}:{n}") for n in (25, 50, 100)],
+        [InlineKeyboardButton(text="300", callback_data=f"bf:{conn_id}:300"),
+         InlineKeyboardButton(text=t("bf_all", lang), callback_data=f"bf:{conn_id}:1000")],
         [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")],
-    ])
-
-
-def _backfill_daily_kb(conn_id: int, total: int, lang: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=str(n), callback_data=f"bf:{conn_id}:{total}:{n}") for n in (1, 2, 4)],
-        [InlineKeyboardButton(text="8", callback_data=f"bf:{conn_id}:{total}:8"),
-         InlineKeyboardButton(text=t("bf_all", lang), callback_data=f"bf:{conn_id}:{total}:1000")],
-        [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn_bf:{conn_id}")],
     ])
 
 
@@ -290,14 +281,6 @@ async def backfill_menu(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("bf_n:"))
-async def backfill_daily_menu(callback: CallbackQuery) -> None:
-    lang = await user_lang(callback.from_user.id)
-    _, conn_id, total = callback.data.split(":", 2)
-    await _edit(callback.message, t("bf_choose_daily", lang), _backfill_daily_kb(int(conn_id), int(total), lang))
-    await callback.answer()
-
-
 @router.callback_query(F.data.startswith("bf:"))
 async def backfill_do(callback: CallbackQuery) -> None:
     from bot.services.backfill import backfill_connection
@@ -305,10 +288,9 @@ async def backfill_do(callback: CallbackQuery) -> None:
     lang = await user_lang(callback.from_user.id)
     parts = callback.data.split(":")
     conn_id, total = int(parts[1]), int(parts[2])
-    daily = int(parts[3]) if len(parts) >= 4 else get_settings().per_account_daily_limit
     await callback.answer(t("bf_working", lang))
     await _edit(callback.message, t("bf_working", lang))
-    res = await backfill_connection(conn_id, total, user_id=callback.from_user.id, daily_limit=daily)
+    res = await backfill_connection(conn_id, total, user_id=callback.from_user.id)
     if not res.ok:
         txt = t("bf_empty", lang) if res.error in ("empty", "unsupported", "no_source") else t("c_not_found", lang)
     elif res.created == 0:

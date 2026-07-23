@@ -475,10 +475,6 @@ T: dict[str, dict[str, str]] = {
     "c_ovl_removed_toast": {"ru": "Оверлей убран", "en": "Overlay removed"},
     "c_not_found_short": {"ru": "Не найдено", "en": "Not found"},
     "c_btn_backfill": {"ru": "📥 Залить архив", "en": "📥 Backfill"},
-    "bf_choose_daily": {
-        "ru": "📅 Сколько видео публиковать в день?",
-        "en": "📅 How many videos to publish per day?",
-    },
     "gate_prompt": {
         "ru": (
             "👋 Привет! Чтобы получить <b>7 дней бесплатного доступа</b> к PostiqBot, "
