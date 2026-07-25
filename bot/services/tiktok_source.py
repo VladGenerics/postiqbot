@@ -8,20 +8,26 @@ import yt_dlp
 
 from bot.config import get_settings
 from bot.services.rss import Feed, FeedEntry
+from bot.services.ytdlp_cookies import working_copy
+
+
+def _with_cookies(opts: dict) -> dict:
+    """Добавить cookies в opts."""
+    settings = get_settings()
+    cookies = working_copy(settings.tiktok_cookies_file, settings.download_dir)
+    if cookies:
+        opts["cookiefile"] = cookies
+    return opts
 
 
 def _ydl_opts() -> dict:
-    opts: dict = {
+    return _with_cookies({
         "quiet": True,
         "extract_flat": True,
         "skip_download": True,
         "noprogress": True,
         "playlist_items": "1:15",
-    }
-    cookies = get_settings().tiktok_cookies_file
-    if cookies:
-        opts["cookiefile"] = cookies
-    return opts
+    })
 
 
 def _norm_username(query: str) -> str:
@@ -63,10 +69,9 @@ def _resolve_username_sync(query: str) -> str | None:
         return q[1:]
     if "tiktok.com" not in q.lower():
         return q or None
-    opts = {"quiet": True, "skip_download": True, "noprogress": True, "playlist_items": "1"}
-    cookies = get_settings().tiktok_cookies_file
-    if cookies:
-        opts["cookiefile"] = cookies
+    opts = _with_cookies(
+        {"quiet": True, "skip_download": True, "noprogress": True, "playlist_items": "1"}
+    )
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(q, download=False)
     if info.get("_type") == "playlist" and info.get("entries"):
@@ -100,7 +105,7 @@ async def fetch_recent_tiktok(username: str) -> Feed | None:
 
 
 def _archive_sync(username: str, limit: int) -> list[FeedEntry]:
-    opts = {
+    opts = _with_cookies({
         "quiet": True,
         "extract_flat": True,
         "skip_download": True,
@@ -108,10 +113,7 @@ def _archive_sync(username: str, limit: int) -> list[FeedEntry]:
         "no_warnings": True,
         "ignoreerrors": True,
         "playlist_items": f"1:{limit}",
-    }
-    cookies = get_settings().tiktok_cookies_file
-    if cookies:
-        opts["cookiefile"] = cookies
+    })
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(_profile_url(username), download=False)
     entries: list[FeedEntry] = []

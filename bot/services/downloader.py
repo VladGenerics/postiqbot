@@ -21,6 +21,7 @@ from bot.db.models import (
 )
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
+from bot.services.ytdlp_cookies import working_copy
 
 logger = logging.getLogger("postiqbot.downloader")
 
@@ -42,9 +43,10 @@ def _ydl_opts(dest_dir: str) -> dict:
         "noprogress": True,
         "noplaylist": True,
         "retries": 3,
+        "remote_components": ["ejs:github"],
     }
-    cookies = get_settings().ytdlp_cookies_file
-    if cookies and os.path.exists(cookies):
+    cookies = working_copy(get_settings().ytdlp_cookies_file, dest_dir)
+    if cookies:
         opts["cookiefile"] = cookies
     return opts
 
