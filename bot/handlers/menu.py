@@ -248,16 +248,12 @@ async def _enter_support(message: Message, state: FSMContext, lang: str) -> None
 
 
 async def _show_mylist(message: Message, user_id: int, lang: str) -> None:
-    from bot.handlers.connections import _list_markup, _load_connections
+    from bot.handlers.connections import _overview_rows
 
-    connections = await _load_connections(user_id)
-    if not connections:
-        kb = InlineKeyboardMarkup(inline_keyboard=[_back("connections", lang)])
-        await show_screen(message, "connections", t("mylist_empty", lang), kb, edit=True, lang=lang)
-        return
-    rows = list(_list_markup(connections).inline_keyboard)
+    rows, has_any = await _overview_rows(user_id, lang)
     rows.append(_back("connections", lang))
-    await show_screen(message, "connections", t("mylist_title", lang),
+    caption = t("mylist_title", lang) if has_any else t("mylist_empty", lang)
+    await show_screen(message, "connections", caption,
                       InlineKeyboardMarkup(inline_keyboard=rows), edit=True, lang=lang)
 
 

@@ -5,7 +5,7 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
 from sqlalchemy import func, select
@@ -85,6 +85,13 @@ async def _claim_due(limit: int) -> list[_Task]:
         )
         conn_used: dict[int, int] = dict(conn_used_rows.all())
 
+        last_pub_rows = await session.execute(
+            select(Job.connection_id, func.max(Job.updated_at))
+            .where(Job.status == JOB_PUBLISHED)
+            .group_by(Job.connection_id)
+        )
+        last_pub: dict[int, datetime] = dict(last_pub_rows.all())
+
         candidates = list(
             await session.scalars(
                 select(Job)
@@ -132,8 +139,20 @@ async def _claim_due(limit: int) -> list[_Task]:
             conn = job.connection
             uid = conn.user_id
             acc = conn.publish_account
-            if conn_used.get(conn.id, 0) >= conn_limit.get(conn.id, get_settings().trial_videos):
+            day_limit = conn_limit.get(conn.id, get_settings().trial_videos)
+            if conn_used.get(conn.id, 0) >= day_limit:
                 continue
+            if (
+                conn.schedule_mode == "immediate"
+                and day_limit < UNLIMITED
+                and conn.id in last_pub
+            ):
+                gap = timedelta(hours=24 / day_limit)
+                last = last_pub[conn.id]
+                if last.tzinfo is None:
+                    last = last.replace(tzinfo=timezone.utc)
+                if now - last < gap:
+                    continue
             common = dict(
                 job_id=job.id,
                 user_id=conn.user_id,
@@ -168,6 +187,7 @@ async def _claim_due(limit: int) -> list[_Task]:
             else:
                 continue
             conn_used[conn.id] = conn_used.get(conn.id, 0) + 1
+            last_pub[conn.id] = now
     return tasks
 
 

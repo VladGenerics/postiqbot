@@ -1,6 +1,7 @@
 """Баннеры-иконки над сообщениями меню."""
 from __future__ import annotations
 
+import asyncio
 import os
 
 from aiogram.types import (
@@ -10,6 +11,22 @@ from aiogram.types import (
     Message,
     ReplyKeyboardMarkup,
 )
+
+_AUTODEL_TASKS: set[asyncio.Task] = set()
+
+
+def autodelete(message: Message, delay: float = 5.0) -> None:
+    """Удалить сообщение через delay секунд (fire-and-forget)."""
+    async def _later() -> None:
+        await asyncio.sleep(delay)
+        try:
+            await message.delete()
+        except Exception:  # noqa: BLE001 — уже удалено / нет прав
+            pass
+
+    task = asyncio.create_task(_later())
+    _AUTODEL_TASKS.add(task)
+    task.add_done_callback(_AUTODEL_TASKS.discard)
 
 _ASSETS = os.path.join(os.path.dirname(__file__), "assets")
 _FALLBACK_LANG = "ru"

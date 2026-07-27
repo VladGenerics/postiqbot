@@ -12,6 +12,7 @@ from bot.db.session import get_session
 from bot.services.crypto import encrypt
 from bot.services.oauth_state import decode_simple_state
 from bot.services.tiktok_oauth import exchange_code, get_user_info
+from bot.ui import autodelete
 
 logger = logging.getLogger("postiqbot.tiktok_oauth")
 
@@ -83,11 +84,12 @@ async def tiktok_callback(request: web.Request) -> web.Response:
     await _save_account(telegram_id, open_id, name, refresh_token)
 
     try:
-        await bot.send_message(
+        msg = await bot.send_message(
             telegram_id,
             f"✅ TikTok <b>{name}</b> подключён!\n"
             "Теперь можно выбрать его как канал публикации при создании связки.",
         )
+        autodelete(msg)
     except Exception:  # noqa: BLE001
         logger.warning("Не смог уведомить пользователя %s", telegram_id)
 

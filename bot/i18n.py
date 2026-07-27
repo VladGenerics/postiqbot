@@ -334,18 +334,20 @@ T: dict[str, dict[str, str]] = {
     "c_priv_public": {"ru": "🌍 публичное", "en": "🌍 public"},
     "c_card": {
         "ru": (
-            "<b>Связка #{id}</b>\n\n"
+            "<b>{name}</b>\n\n"
             "📡 Источник: <b>{src}</b>\n"
             "📤 Публикую на: <b>{dst}</b>\n"
+            "📁 Папка: {folder}\n"
             "👁 Доступ публикаций: {priv}\n"
             "⏰ Расписание: {sched}\n"
             "🖼 Оверлей: {ovl}\n"
             "⚙️ Статус: {status}"
         ),
         "en": (
-            "<b>Connection #{id}</b>\n\n"
+            "<b>{name}</b>\n\n"
             "📡 Source: <b>{src}</b>\n"
             "📤 Publishing to: <b>{dst}</b>\n"
+            "📁 Folder: {folder}\n"
             "👁 Visibility: {priv}\n"
             "⏰ Schedule: {sched}\n"
             "🖼 Overlay: {ovl}\n"
@@ -475,6 +477,65 @@ T: dict[str, dict[str, str]] = {
     "c_ovl_removed_toast": {"ru": "Оверлей убран", "en": "Overlay removed"},
     "c_not_found_short": {"ru": "Не найдено", "en": "Not found"},
     "c_btn_backfill": {"ru": "📥 Залить архив", "en": "📥 Backfill"},
+    "c_default_name": {"ru": "Связка #{id}", "en": "Connection #{id}"},
+    "c_btn_rename": {"ru": "✏️ Переименовать", "en": "✏️ Rename"},
+    "c_ren_prompt": {
+        "ru": "Пришли новое название связки (до 64 символов).",
+        "en": "Send a new name for the connection (up to 64 characters).",
+    },
+    "c_ren_too_long": {
+        "ru": "Слишком длинно — максимум 64 символа. Попробуй короче.",
+        "en": "Too long — 64 characters max. Try a shorter one.",
+    },
+    "c_renamed_toast": {"ru": "Название сохранено", "en": "Name saved"},
+    "f_btn_folder": {"ru": "📁 Папка: {folder}", "en": "📁 Folder: {folder}"},
+    "f_none": {"ru": "без папки", "en": "no folder"},
+    "f_title": {
+        "ru": "📁 <b>{name}</b>\n\nСвязки в папке:",
+        "en": "📁 <b>{name}</b>\n\nConnections in this folder:",
+    },
+    "f_empty": {
+        "ru": (
+            "📁 <b>{name}</b>\n\nПапка пуста. Открой связку и нажми "
+            "«📁 Папка», чтобы переместить её сюда."
+        ),
+        "en": (
+            "📁 <b>{name}</b>\n\nThis folder is empty. Open a connection and tap "
+            "«📁 Folder» to move it here."
+        ),
+    },
+    "f_btn_new": {"ru": "➕ Новая папка", "en": "➕ New folder"},
+    "f_new_prompt": {
+        "ru": "Пришли название папки (до 64 символов).",
+        "en": "Send a folder name (up to 64 characters).",
+    },
+    "f_created": {"ru": "✅ Папка «{name}» создана.", "en": "✅ Folder «{name}» created."},
+    "f_btn_rename": {"ru": "✏️ Переименовать папку", "en": "✏️ Rename folder"},
+    "f_ren_prompt": {
+        "ru": "Пришли новое название папки (до 64 символов).",
+        "en": "Send a new folder name (up to 64 characters).",
+    },
+    "f_renamed": {"ru": "✅ Папка переименована.", "en": "✅ Folder renamed."},
+    "f_btn_delete": {"ru": "🗑 Удалить папку", "en": "🗑 Delete folder"},
+    "f_del_confirm": {
+        "ru": (
+            "Удалить папку «{name}»?\n"
+            "<i>Связки не удалятся — они вернутся в общий список.</i>"
+        ),
+        "en": (
+            "Delete folder «{name}»?\n"
+            "<i>Connections won't be deleted — they'll return to the main list.</i>"
+        ),
+    },
+    "f_deleted": {"ru": "🗑 Папка удалена.", "en": "🗑 Folder deleted."},
+    "f_deleted_toast": {"ru": "Папка удалена", "en": "Folder deleted"},
+    "f_not_found": {"ru": "Папка не найдена", "en": "Folder not found"},
+    "mv_title": {
+        "ru": "📁 Куда переместить связку?",
+        "en": "📁 Where to move the connection?",
+    },
+    "mv_no_folder": {"ru": "📂 Без папки", "en": "📂 No folder"},
+    "mv_moved_toast": {"ru": "Перемещено", "en": "Moved"},
     "gate_prompt": {
         "ru": (
             "👋 Привет! Чтобы получить <b>7 дней бесплатного доступа</b> к PostiqBot, "

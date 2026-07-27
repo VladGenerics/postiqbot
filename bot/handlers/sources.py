@@ -17,7 +17,7 @@ from bot.db.models import Connection, PublishAccount, SourceChannel
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.services.source_resolver import resolve_source_channel
-from bot.ui import send_with_icon
+from bot.ui import autodelete, send_with_icon
 
 router = Router(name="sources")
 
@@ -138,6 +138,7 @@ async def _finish(
     created = await _create_connection(message.chat.id, account_id, source_id)
     await state.clear()
     if created:
-        await message.answer(t("src_connected", lang, title=title))
+        msg = await message.answer(t("src_connected", lang, title=title))
+        autodelete(msg)
     else:
         await message.answer(t("src_exists", lang))

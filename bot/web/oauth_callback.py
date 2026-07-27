@@ -16,6 +16,7 @@ from bot.services.crypto import decrypt, encrypt
 from bot.services.oauth_state import decode_state
 from bot.services.youtube_api import get_my_channel
 from bot.services.youtube_oauth import exchange_code
+from bot.ui import autodelete
 from bot.web.pages import add_pages
 from bot.web.payment_callback import add_payment_routes
 from bot.web.tiktok_callback import tiktok_callback
@@ -109,11 +110,12 @@ async def oauth_callback(request: web.Request) -> web.Response:
     )
 
     try:
-        await bot.send_message(
+        msg = await bot.send_message(
             telegram_id,
             f"✅ Канал <b>{channel_title}</b> подключён!\n"
             "Теперь добавь источник, за которым следить.",
         )
+        autodelete(msg)
     except Exception:  # noqa: BLE001
         logger.warning("Не смог уведомить пользователя %s", telegram_id)
 

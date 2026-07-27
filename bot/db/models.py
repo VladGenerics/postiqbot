@@ -58,6 +58,27 @@ class User(Base):
     connections: Mapped[list["Connection"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    folders: Mapped[list["Folder"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Folder(Base):
+    """Папка для группировки связок пользователя."""
+
+    __tablename__ = "folders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.telegram_id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    user: Mapped["User"] = relationship(back_populates="folders")
+    connections: Mapped[list["Connection"]] = relationship(back_populates="folder")
 
 
 class OAuthProject(Base):
@@ -157,6 +178,10 @@ class Connection(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     privacy: Mapped[str] = mapped_column(String(16), default="public")
+    name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    folder_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("folders.id", ondelete="SET NULL"), nullable=True
+    )
 
     schedule_mode: Mapped[str] = mapped_column(String(16), default="immediate")
     interval_minutes: Mapped[int] = mapped_column(Integer, default=0)
@@ -172,6 +197,7 @@ class Connection(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="connections")
+    folder: Mapped["Folder | None"] = relationship(back_populates="connections")
     publish_account: Mapped["PublishAccount"] = relationship(
         back_populates="connections"
     )

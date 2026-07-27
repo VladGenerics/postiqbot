@@ -1,7 +1,8 @@
-"""Управление связками клиента: список, пауза/возобновление, приватность, удаление."""
+"""Управление связками клиента: список, папки, переименование, пауза, приватность, удаление."""
 from __future__ import annotations
 
 import asyncio
+import html
 import os
 
 from aiogram import Bot, F, Router
@@ -13,19 +14,24 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     InputMediaPhoto,
+    LinkPreviewOptions,
     Message,
 )
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
 from bot.config import get_settings
-from bot.db.models import Connection
+from bot.db.models import Connection, Folder
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.services.overlay import make_preview
 from bot.ui import send_with_icon
 
 router = Router(name="connections")
+
+_NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
+
+_NAME_MAX = 64
 
 
 class SchedFlow(StatesGroup):
@@ -35,6 +41,15 @@ class SchedFlow(StatesGroup):
 
 class OverlayFlow(StatesGroup):
     waiting_image = State()
+
+
+class RenameFlow(StatesGroup):
+    waiting_name = State()
+
+
+class FolderFlow(StatesGroup):
+    waiting_new_name = State()
+    waiting_rename = State()
 
 
 _POSITION_LABELS = {
@@ -70,19 +85,27 @@ def _priv_label(privacy: str, lang: str) -> str:
     return t(f"c_priv_{privacy}", lang) if privacy in _PRIVACY_NEXT else privacy
 
 
-async def _load_connections(user_id: int) -> list[Connection]:
+_CONN_OPTS = (
+    joinedload(Connection.source_channel),
+    joinedload(Connection.publish_account),
+    joinedload(Connection.folder),
+)
+
+
+async def _load_connections(
+    user_id: int, folder_id: int | None = None, *, only_folder: bool = False
+) -> list[Connection]:
+    """Связки пользователя."""
+    stmt = (
+        select(Connection)
+        .where(Connection.user_id == user_id)
+        .order_by(Connection.id)
+        .options(*_CONN_OPTS)
+    )
+    if only_folder:
+        stmt = stmt.where(Connection.folder_id == folder_id)
     async with get_session() as session:
-        return list(
-            await session.scalars(
-                select(Connection)
-                .where(Connection.user_id == user_id)
-                .order_by(Connection.id)
-                .options(
-                    joinedload(Connection.source_channel),
-                    joinedload(Connection.publish_account),
-                )
-            )
-        )
+        return list(await session.scalars(stmt))
 
 
 async def _load_one(conn_id: int, user_id: int) -> Connection | None:
@@ -91,35 +114,85 @@ async def _load_one(conn_id: int, user_id: int) -> Connection | None:
         conn = await session.scalar(
             select(Connection)
             .where(Connection.id == conn_id, Connection.user_id == user_id)
-            .options(
-                joinedload(Connection.source_channel),
-                joinedload(Connection.publish_account),
-            )
+            .options(*_CONN_OPTS)
         )
         return conn
 
 
+async def _load_folders(user_id: int) -> list[tuple[Folder, int]]:
+    """Папки пользователя + число связок в каждой."""
+    async with get_session() as session:
+        rows = await session.execute(
+            select(Folder, func.count(Connection.id))
+            .outerjoin(Connection, Connection.folder_id == Folder.id)
+            .where(Folder.user_id == user_id)
+            .group_by(Folder.id)
+            .order_by(Folder.id)
+        )
+        return [(f, n) for f, n in rows]
+
+
+async def _load_folder(folder_id: int, user_id: int) -> Folder | None:
+    async with get_session() as session:
+        return await session.scalar(
+            select(Folder).where(Folder.id == folder_id, Folder.user_id == user_id)
+        )
+
+
+def _conn_btn_text(c: Connection) -> str:
+    label = c.name or f"{c.source_channel.channel_title} → {c.publish_account.channel_title}"
+    return f"{'🟢' if c.is_active else '⏸'} {label}"
+
+
 def _list_markup(connections: list[Connection]) -> InlineKeyboardMarkup:
     rows = [
-        [
-            InlineKeyboardButton(
-                text=f"{'🟢' if c.is_active else '⏸'} "
-                f"{c.source_channel.channel_title} → {c.publish_account.channel_title}",
-                callback_data=f"conn:{c.id}",
-            )
-        ]
+        [InlineKeyboardButton(text=_conn_btn_text(c), callback_data=f"conn:{c.id}")]
         for c in connections
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+async def _overview_rows(user_id: int, lang: str) -> tuple[list[list[InlineKeyboardButton]], bool]:
+    """Строки списка «Мои подключения»: папки, связки без папки, «новая папка»."""
+    folders = await _load_folders(user_id)
+    connections = await _load_connections(user_id, None, only_folder=True)
+    rows = [
+        [InlineKeyboardButton(text=f"📁 {f.name} ({n})", callback_data=f"fld:{f.id}")]
+        for f, n in folders
+    ]
+    rows += [
+        [InlineKeyboardButton(text=_conn_btn_text(c), callback_data=f"conn:{c.id}")]
+        for c in connections
+    ]
+    rows.append([InlineKeyboardButton(text=t("f_btn_new", lang), callback_data="fld_new")])
+    return rows, bool(folders or connections)
+
+
+def _channel_link(platform: str, channel_id: str, title: str, *, is_source: bool) -> str:
+    """HTML-ссылка на канал; если URL построить нельзя — просто имя."""
+    safe = html.escape(title)
+    url = None
+    if platform == "youtube":
+        url = f"https://www.youtube.com/channel/{channel_id}"
+    elif platform == "tiktok" and is_source:
+        url = f"https://www.tiktok.com/@{channel_id}"
+    return f'<a href="{url}">{safe}</a>' if url else safe
+
+
+def _conn_name(conn: Connection, lang: str) -> str:
+    return html.escape(conn.name) if conn.name else t("c_default_name", lang, id=conn.id)
+
+
 def _card_text(conn: Connection, lang: str) -> str:
     status = t("c_active", lang) if conn.is_active else t("c_paused", lang)
+    src = conn.source_channel
+    dst = conn.publish_account
     return t(
         "c_card", lang,
-        id=conn.id,
-        src=conn.source_channel.channel_title,
-        dst=conn.publish_account.channel_title,
+        name=_conn_name(conn, lang),
+        src=_channel_link(src.platform, src.channel_id, src.channel_title, is_source=True),
+        dst=_channel_link(dst.platform, dst.channel_id, dst.channel_title, is_source=False),
+        folder=html.escape(conn.folder.name) if conn.folder else t("f_none", lang),
         priv=_priv_label(conn.privacy, lang),
         sched=_sched_desc(conn, lang),
         ovl=_ovl_desc(conn, lang),
@@ -132,6 +205,8 @@ def _card_markup(conn: Connection, lang: str) -> InlineKeyboardMarkup:
         text=t("c_btn_pause" if conn.is_active else "c_btn_resume", lang),
         callback_data=f"conn_toggle:{conn.id}",
     )
+    back_data = f"fld:{conn.folder_id}" if conn.folder_id else "nav:mylist"
+    folder_label = conn.folder.name if conn.folder else t("f_none", lang)
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [toggle],
@@ -147,22 +222,30 @@ def _card_markup(conn: Connection, lang: str) -> InlineKeyboardMarkup:
                 text=t("c_btn_overlay", lang, ovl=_ovl_desc(conn, lang)),
                 callback_data=f"conn_ovl:{conn.id}",
             )],
+            [InlineKeyboardButton(text=t("c_btn_rename", lang), callback_data=f"conn_ren:{conn.id}"),
+             InlineKeyboardButton(
+                 text=t("f_btn_folder", lang, folder=folder_label),
+                 callback_data=f"conn_mv:{conn.id}",
+             )],
             [InlineKeyboardButton(text=t("c_btn_backfill", lang), callback_data=f"conn_bf:{conn.id}")],
             [InlineKeyboardButton(text=t("c_btn_delete", lang), callback_data=f"conn_del:{conn.id}")],
-            [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data="nav:mylist")],
+            [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=back_data)],
         ]
     )
 
 
 async def open_connections(message: Message, user_id: int) -> None:
     lang = await user_lang(user_id)
-    connections = await _load_connections(user_id)
-    if not connections:
-        await send_with_icon(message, "connections", t("mylist_empty", lang), lang=lang)
+    rows, has_any = await _overview_rows(user_id, lang)
+    if not has_any:
+        await send_with_icon(
+            message, "connections", t("mylist_empty", lang),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows), lang=lang,
+        )
         return
     await send_with_icon(
         message, "connections", t("mylist_title", lang),
-        reply_markup=_list_markup(connections), lang=lang,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows), lang=lang,
     )
 
 
@@ -175,7 +258,7 @@ async def show_connections(callback: CallbackQuery) -> None:
 async def _edit(message: Message, text: str, markup: InlineKeyboardMarkup | None = None) -> None:
     """Отредактировать сообщение «на месте»: если это фото-баннер — правим его подпись, если текст — текст."""
     try:
-        await message.edit_text(text, reply_markup=markup)
+        await message.edit_text(text, reply_markup=markup, link_preview_options=_NO_PREVIEW)
         return
     except Exception:  # noqa: BLE001 — у фото нет текста, пробуем подпись
         pass
@@ -184,7 +267,7 @@ async def _edit(message: Message, text: str, markup: InlineKeyboardMarkup | None
         return
     except Exception:  # noqa: BLE001
         pass
-    await message.answer(text, reply_markup=markup)
+    await message.answer(text, reply_markup=markup, link_preview_options=_NO_PREVIEW)
 
 
 async def _show_card(callback: CallbackQuery, conn: Connection, lang: str) -> None:
@@ -202,6 +285,270 @@ async def show_card(callback: CallbackQuery) -> None:
         return
     await _show_card(callback, conn, lang)
     await callback.answer()
+
+
+def _clean_name(raw: str | None) -> str | None:
+    """Нормализовать пользовательское имя; None — если пустое/некорректное."""
+    name = " ".join((raw or "").split())
+    return name or None
+
+
+@router.callback_query(F.data.startswith("conn_ren:"))
+async def rename_start(callback: CallbackQuery, state: FSMContext) -> None:
+    lang = await user_lang(callback.from_user.id)
+    conn_id = int(callback.data.split(":", 1)[1])
+    await state.update_data(ren_conn_id=conn_id)
+    await state.set_state(RenameFlow.waiting_name)
+    await callback.message.answer(t("c_ren_prompt", lang))
+    await callback.answer()
+
+
+@router.message(RenameFlow.waiting_name)
+async def rename_got(message: Message, state: FSMContext) -> None:
+    lang = await user_lang(message.from_user.id)
+    name = _clean_name(message.text)
+    if name is None:
+        await message.answer(t("c_ren_prompt", lang))
+        return
+    if len(name) > _NAME_MAX:
+        await message.answer(t("c_ren_too_long", lang))
+        return
+    data = await state.get_data()
+    conn_id = data.get("ren_conn_id")
+    async with get_session() as session:
+        conn = await session.scalar(
+            select(Connection)
+            .where(Connection.id == conn_id, Connection.user_id == message.from_user.id)
+            .options(*_CONN_OPTS)
+        )
+        if conn is None:
+            await state.clear()
+            await message.answer(t("c_not_found_dot", lang))
+            return
+        conn.name = name
+        text, markup = _card_text(conn, lang), _card_markup(conn, lang)
+    await state.clear()
+    await message.answer(text, reply_markup=markup, link_preview_options=_NO_PREVIEW)
+
+
+async def _folder_screen(user_id: int, folder_id: int, lang: str) -> tuple[str, InlineKeyboardMarkup] | None:
+    """(текст, клавиатура) экрана папки или None, если папка не найдена."""
+    folder = await _load_folder(folder_id, user_id)
+    if folder is None:
+        return None
+    conns = await _load_connections(user_id, folder_id, only_folder=True)
+    rows = [
+        [InlineKeyboardButton(text=_conn_btn_text(c), callback_data=f"conn:{c.id}")]
+        for c in conns
+    ]
+    rows.append([
+        InlineKeyboardButton(text=t("f_btn_rename", lang), callback_data=f"fld_ren:{folder.id}"),
+        InlineKeyboardButton(text=t("f_btn_delete", lang), callback_data=f"fld_del:{folder.id}"),
+    ])
+    rows.append([InlineKeyboardButton(text=t("c_btn_back", lang), callback_data="nav:mylist")])
+    text = t("f_title" if conns else "f_empty", lang, name=html.escape(folder.name))
+    return text, InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+@router.callback_query(F.data.startswith("fld:"))
+async def folder_open(callback: CallbackQuery) -> None:
+    lang = await user_lang(callback.from_user.id)
+    folder_id = int(callback.data.split(":", 1)[1])
+    screen = await _folder_screen(callback.from_user.id, folder_id, lang)
+    if screen is None:
+        await callback.answer(t("f_not_found", lang), show_alert=True)
+        return
+    await _edit(callback.message, screen[0], screen[1])
+    await callback.answer()
+
+
+@router.callback_query(F.data == "fld_new")
+async def folder_new(callback: CallbackQuery, state: FSMContext) -> None:
+    lang = await user_lang(callback.from_user.id)
+    await state.update_data(move_conn_id=None)
+    await state.set_state(FolderFlow.waiting_new_name)
+    await callback.message.answer(t("f_new_prompt", lang))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("conn_mvnew:"))
+async def folder_new_and_move(callback: CallbackQuery, state: FSMContext) -> None:
+    """Создать папку прямо из меню перемещения — связка сразу попадёт в неё."""
+    lang = await user_lang(callback.from_user.id)
+    conn_id = int(callback.data.split(":", 1)[1])
+    await state.update_data(move_conn_id=conn_id)
+    await state.set_state(FolderFlow.waiting_new_name)
+    await callback.message.answer(t("f_new_prompt", lang))
+    await callback.answer()
+
+
+@router.message(FolderFlow.waiting_new_name)
+async def folder_new_got(message: Message, state: FSMContext) -> None:
+    lang = await user_lang(message.from_user.id)
+    name = _clean_name(message.text)
+    if name is None:
+        await message.answer(t("f_new_prompt", lang))
+        return
+    if len(name) > _NAME_MAX:
+        await message.answer(t("c_ren_too_long", lang))
+        return
+    data = await state.get_data()
+    move_conn_id = data.get("move_conn_id")
+    await state.clear()
+    user_id = message.from_user.id
+    async with get_session() as session:
+        folder = Folder(user_id=user_id, name=name)
+        session.add(folder)
+        await session.flush()
+        conn = None
+        if move_conn_id:
+            conn = await session.scalar(
+                select(Connection)
+                .where(Connection.id == move_conn_id, Connection.user_id == user_id)
+                .options(*_CONN_OPTS)
+            )
+            if conn is not None:
+                conn.folder_id = folder.id
+                conn.folder = folder
+    if conn is not None:
+        await message.answer(
+            _card_text(conn, lang), reply_markup=_card_markup(conn, lang),
+            link_preview_options=_NO_PREVIEW,
+        )
+        return
+    rows, _ = await _overview_rows(user_id, lang)
+    await message.answer(
+        t("f_created", lang, name=html.escape(name)) + "\n\n" + t("mylist_title", lang),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+    )
+
+
+@router.callback_query(F.data.startswith("fld_ren:"))
+async def folder_rename_start(callback: CallbackQuery, state: FSMContext) -> None:
+    lang = await user_lang(callback.from_user.id)
+    folder_id = int(callback.data.split(":", 1)[1])
+    await state.update_data(fld_id=folder_id)
+    await state.set_state(FolderFlow.waiting_rename)
+    await callback.message.answer(t("f_ren_prompt", lang))
+    await callback.answer()
+
+
+@router.message(FolderFlow.waiting_rename)
+async def folder_rename_got(message: Message, state: FSMContext) -> None:
+    lang = await user_lang(message.from_user.id)
+    name = _clean_name(message.text)
+    if name is None:
+        await message.answer(t("f_ren_prompt", lang))
+        return
+    if len(name) > _NAME_MAX:
+        await message.answer(t("c_ren_too_long", lang))
+        return
+    data = await state.get_data()
+    folder_id = data.get("fld_id")
+    async with get_session() as session:
+        folder = await session.scalar(
+            select(Folder).where(Folder.id == folder_id, Folder.user_id == message.from_user.id)
+        )
+        if folder is None:
+            await state.clear()
+            await message.answer(t("f_not_found", lang))
+            return
+        folder.name = name
+    await state.clear()
+    screen = await _folder_screen(message.from_user.id, folder_id, lang)
+    if screen is not None:
+        await message.answer(t("f_renamed", lang))
+        await message.answer(screen[0], reply_markup=screen[1])
+
+
+@router.callback_query(F.data.startswith("fld_del:"))
+async def folder_del_confirm(callback: CallbackQuery) -> None:
+    lang = await user_lang(callback.from_user.id)
+    folder_id = int(callback.data.split(":", 1)[1])
+    folder = await _load_folder(folder_id, callback.from_user.id)
+    if folder is None:
+        await callback.answer(t("f_not_found", lang), show_alert=True)
+        return
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text=t("c_btn_del_yes", lang), callback_data=f"fld_delyes:{folder_id}"),
+            InlineKeyboardButton(text=t("c_btn_cancel", lang), callback_data=f"fld:{folder_id}"),
+        ]
+    ])
+    await _edit(callback.message, t("f_del_confirm", lang, name=html.escape(folder.name)), kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("fld_delyes:"))
+async def folder_del_do(callback: CallbackQuery) -> None:
+    lang = await user_lang(callback.from_user.id)
+    folder_id = int(callback.data.split(":", 1)[1])
+    async with get_session() as session:
+        folder = await session.scalar(
+            select(Folder).where(Folder.id == folder_id, Folder.user_id == callback.from_user.id)
+        )
+        if folder is None:
+            await callback.answer(t("f_not_found", lang), show_alert=True)
+            return
+        await session.delete(folder)
+    rows, _ = await _overview_rows(callback.from_user.id, lang)
+    await _edit(callback.message, t("mylist_title", lang), InlineKeyboardMarkup(inline_keyboard=rows))
+    await callback.answer(t("f_deleted_toast", lang))
+
+
+@router.callback_query(F.data.startswith("conn_mv:"))
+async def move_menu(callback: CallbackQuery) -> None:
+    lang = await user_lang(callback.from_user.id)
+    conn_id = int(callback.data.split(":", 1)[1])
+    conn = await _load_one(conn_id, callback.from_user.id)
+    if conn is None:
+        await callback.answer(t("c_not_found", lang), show_alert=True)
+        return
+    folders = await _load_folders(callback.from_user.id)
+    rows = [
+        [InlineKeyboardButton(
+            text=("• " if conn.folder_id == f.id else "") + f"📁 {f.name}",
+            callback_data=f"conn_mvto:{conn_id}:{f.id}",
+        )]
+        for f, _ in folders
+    ]
+    rows.append([InlineKeyboardButton(
+        text=("• " if conn.folder_id is None else "") + t("mv_no_folder", lang),
+        callback_data=f"conn_mvto:{conn_id}:0",
+    )])
+    rows.append([InlineKeyboardButton(text=t("f_btn_new", lang), callback_data=f"conn_mvnew:{conn_id}")])
+    rows.append([InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")])
+    await _edit(callback.message, t("mv_title", lang), InlineKeyboardMarkup(inline_keyboard=rows))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("conn_mvto:"))
+async def move_do(callback: CallbackQuery) -> None:
+    lang = await user_lang(callback.from_user.id)
+    _, conn_id, folder_id = callback.data.split(":", 2)
+    conn_id, folder_id = int(conn_id), int(folder_id)
+    async with get_session() as session:
+        conn = await session.scalar(
+            select(Connection)
+            .where(Connection.id == conn_id, Connection.user_id == callback.from_user.id)
+            .options(*_CONN_OPTS)
+        )
+        if conn is None:
+            await callback.answer(t("c_not_found", lang), show_alert=True)
+            return
+        folder = None
+        if folder_id:
+            folder = await session.scalar(
+                select(Folder).where(Folder.id == folder_id, Folder.user_id == callback.from_user.id)
+            )
+            if folder is None:
+                await callback.answer(t("f_not_found", lang), show_alert=True)
+                return
+        conn.folder_id = folder.id if folder else None
+        conn.folder = folder
+        text, markup = _card_text(conn, lang), _card_markup(conn, lang)
+    await _edit(callback.message, text, markup)
+    await callback.answer(t("mv_moved_toast", lang))
 
 
 @router.callback_query(F.data.startswith("conn_toggle:"))
@@ -376,7 +723,10 @@ async def got_interval(message: Message, state: FSMContext) -> None:
     if conn is None:
         await message.answer(t("c_not_found_dot", lang))
         return
-    await message.answer(_card_text(conn, lang), reply_markup=_card_markup(conn, lang))
+    await message.answer(
+        _card_text(conn, lang), reply_markup=_card_markup(conn, lang),
+        link_preview_options=_NO_PREVIEW,
+    )
 
 
 @router.callback_query(F.data.startswith("sched_times:"))
@@ -417,7 +767,10 @@ async def got_times(message: Message, state: FSMContext) -> None:
     if conn is None:
         await message.answer(t("c_not_found_dot", lang))
         return
-    await message.answer(_card_text(conn, lang), reply_markup=_card_markup(conn, lang))
+    await message.answer(
+        _card_text(conn, lang), reply_markup=_card_markup(conn, lang),
+        link_preview_options=_NO_PREVIEW,
+    )
 
 
 def _overlay_markup(conn: Connection, lang: str) -> InlineKeyboardMarkup:
