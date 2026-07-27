@@ -87,6 +87,7 @@ async def grant_subscription(
             user.subscription_until and user.subscription_until > _now()
         ) else _now()
         user.subscription_until = base + timedelta(days=days)
+        user.expiry_warned = False
         if plan is not None:
             p = get_settings().plans.get(plan)
             if p:
@@ -139,6 +140,39 @@ async def inc_videos_used(telegram_id: int) -> None:
         user = await session.get(User, telegram_id)
         if user:
             user.videos_used += 1
+
+
+async def warn_expiring(bot) -> int:
+    """Предупредить пользователей, чей доступ кончается в ближайшие 24 часа."""
+    from bot.i18n import t
+
+    now = _now()
+    admins = get_settings().admin_id_set
+    async with get_session() as session:
+        users = (
+            await session.scalars(select(User).where(User.expiry_warned.is_(False)))
+        ).all()
+        expiring = [
+            u for u in users
+            if u.telegram_id not in admins
+            and (until := access_until(u)) is not None
+            and now < until <= now + timedelta(hours=24)
+        ]
+        for u in expiring:
+            u.expiry_warned = True
+
+    sent = 0
+    for u in expiring:
+        until = access_until(u)
+        try:
+            await bot.send_message(
+                u.telegram_id,
+                t("expiry_soon", u.lang or "ru", date=f"{until:%d.%m.%Y %H:%M} UTC"),
+            )
+            sent += 1
+        except Exception:  # noqa: BLE001 — заблокировал бота и т.п.
+            pass
+    return sent
 
 
 def status_text(user: User, lang: str = "ru") -> str:
