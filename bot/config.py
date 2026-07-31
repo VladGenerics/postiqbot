@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     web_host: str = "0.0.0.0"
     web_port: int = 8080
     public_domain: str = ""
+    site_app_name: str = "PosttiqBot"
 
     privacy_url: str = "https://telegra.ph/Politika-konfidencialnosti-06-21-31"
     terms_url: str = "https://telegra.ph/Polzovatelskoe-soglashenie-04-01-19"
