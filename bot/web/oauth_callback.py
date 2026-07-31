@@ -25,10 +25,11 @@ logger = logging.getLogger("postiqbot.oauth")
 
 
 def _html(message: str) -> web.Response:
+    app = get_settings().site_app_name or "PosttiqBot"
     body = (
         "<!doctype html><html lang='ru'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-        "<title>PostiqBot</title></head>"
+        f"<title>{app}</title></head>"
         "<body style='font-family:sans-serif;max-width:480px;margin:60px auto;"
         "text-align:center'>"
         f"{message}"

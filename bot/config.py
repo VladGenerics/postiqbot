@@ -76,7 +76,7 @@ class Settings(BaseSettings):
 
     private_mode: bool = False
     private_message: str = (
-        "🚀 <b>PostiqBot запускается 30 июня!</b>\n\n"
+        "🚀 <b>PosttiqBot запускается 30 июня!</b>\n\n"
         "Подпишись на канал, чтобы на старте забрать бесплатный доступ на 7 дней."
     )
 

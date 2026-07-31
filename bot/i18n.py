@@ -30,14 +30,14 @@ LABELS: dict[str, dict[str, str]] = {
 T: dict[str, dict[str, str]] = {
     "welcome": {
         "ru": (
-            "👋 Привет! Я <b>PostiqBot</b>.\n\n"
+            "👋 Привет! Я <b>PosttiqBot</b>.\n\n"
             "Я слежу за каналами-источниками и автоматически перезаливаю новые "
             "видео (включая Shorts) на твои YouTube/TikTok по расписанию.\n\n"
             "Пользуйся кнопками меню внизу 👇\n"
             "Начни с подключения своего канала, потом добавь источник."
         ),
         "en": (
-            "👋 Hi! I'm <b>PostiqBot</b>.\n\n"
+            "👋 Hi! I'm <b>PosttiqBot</b>.\n\n"
             "I watch source channels and automatically repost new videos "
             "(including Shorts) to your YouTube/TikTok on schedule.\n\n"
             "Use the menu buttons below 👇\n"
@@ -266,7 +266,7 @@ T: dict[str, dict[str, str]] = {
     "btn_login_tiktok": {"ru": "🔓 Войти через TikTok", "en": "🔓 Sign in with TikTok"},
     "guide": {
         "ru": (
-            "📖 <b>Как пользоваться PostiqBot</b>\n\n"
+            "📖 <b>Как пользоваться PosttiqBot</b>\n\n"
             "Бот автоматически забирает новые видео с канала-источника и публикует их "
             "на твой канал (YouTube или TikTok) по расписанию.\n\n"
             "<b>1. Подключи свой канал</b>\n"
@@ -286,7 +286,7 @@ T: dict[str, dict[str, str]] = {
             "• Доступ: триал, затем подписка («💎 Тарифы»). Вопросы — «🛠 Поддержка»."
         ),
         "en": (
-            "📖 <b>How to use PostiqBot</b>\n\n"
+            "📖 <b>How to use PosttiqBot</b>\n\n"
             "The bot automatically takes new videos from a source channel and publishes "
             "them to your channel (YouTube or TikTok) on schedule.\n\n"
             "<b>1. Connect your channel</b>\n"
@@ -538,11 +538,11 @@ T: dict[str, dict[str, str]] = {
     "mv_moved_toast": {"ru": "Перемещено", "en": "Moved"},
     "gate_prompt": {
         "ru": (
-            "👋 Привет! Чтобы получить <b>7 дней бесплатного доступа</b> к PostiqBot, "
+            "👋 Привет! Чтобы получить <b>7 дней бесплатного доступа</b> к PosttiqBot, "
             "подпишись на наш канал 👇"
         ),
         "en": (
-            "👋 Hi! To get <b>7 days of free access</b> to PostiqBot, "
+            "👋 Hi! To get <b>7 days of free access</b> to PosttiqBot, "
             "subscribe to our channel 👇"
         ),
     },
@@ -699,12 +699,12 @@ T: dict[str, dict[str, str]] = {
     },
     "sup_greeting": {
         "ru": (
-            "👋 Привет! Это чат поддержки PostiqBot.\n\n"
+            "👋 Привет! Это чат поддержки PosttiqBot.\n\n"
             "Опиши свой вопрос или проблему — можно текстом и скриншотами. "
             "Ответим тебе здесь же, как только сможем."
         ),
         "en": (
-            "👋 Hi! This is PostiqBot support chat.\n\n"
+            "👋 Hi! This is PosttiqBot support chat.\n\n"
             "Describe your question or issue — text and screenshots are fine. "
             "We'll reply right here as soon as we can."
         ),
@@ -733,7 +733,7 @@ T: dict[str, dict[str, str]] = {
         "ru": "💬 Открыть чат поддержки",
         "en": "💬 Open support chat",
     },
-    "inv_title": {"ru": "Подписка PostiqBot — {plan}", "en": "PostiqBot subscription — {plan}"},
+    "inv_title": {"ru": "Подписка PosttiqBot — {plan}", "en": "PosttiqBot subscription — {plan}"},
     "inv_desc": {"ru": "Доступ к авто-репостингу {period}.", "en": "Auto-reposting access {period}."},
     "inv_period_forever": {"ru": "навсегда", "en": "forever"},
     "inv_period_days": {"ru": "на {days} дней", "en": "for {days} days"},

@@ -7,6 +7,7 @@ from aiogram import Bot
 from aiohttp import web
 from sqlalchemy.dialects.postgresql import insert
 
+from bot.config import get_settings
 from bot.db.models import PublishAccount
 from bot.db.session import get_session
 from bot.services.crypto import encrypt
@@ -18,10 +19,11 @@ logger = logging.getLogger("postiqbot.tiktok_oauth")
 
 
 def _html(message: str) -> web.Response:
+    app = get_settings().site_app_name or "PosttiqBot"
     body = (
         "<!doctype html><html lang='ru'><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-        "<title>PostiqBot</title></head>"
+        f"<title>{app}</title></head>"
         "<body style='font-family:sans-serif;max-width:480px;margin:60px auto;"
         f"text-align:center'>{message}"
         "<p style='color:#888'>Можно вернуться в Telegram.</p></body></html>"

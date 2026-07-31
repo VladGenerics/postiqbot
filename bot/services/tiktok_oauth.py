@@ -74,12 +74,12 @@ async def get_user_info(access_token: str) -> tuple[str, str]:
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.get(
             USERINFO_URL,
-            params={"fields": "open_id,display_name,username"},
+            params={"fields": "open_id,display_name"},
             headers={"Authorization": f"Bearer {access_token}"},
         )
     data = resp.json().get("data", {}).get("user", {})
     open_id = data.get("open_id")
     if not open_id:
         raise ValueError(f"TikTok user info error: {resp.text}")
-    name = data.get("display_name") or data.get("username") or "TikTok"
+    name = data.get("display_name") or "TikTok"
     return open_id, name

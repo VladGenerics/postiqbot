@@ -32,7 +32,7 @@ router = Router(name="extras")
 
 
 _GUIDE = (
-    "📖 <b>Как пользоваться PostiqBot</b>\n\n"
+    "📖 <b>Как пользоваться PosttiqBot</b>\n\n"
     "Бот автоматически забирает новые видео с канала-источника и публикует их "
     "на твой канал (YouTube или TikTok) по расписанию.\n\n"
     "<b>1. Подключи свой канал</b>\n"
@@ -193,7 +193,7 @@ async def buy_plan(callback: CallbackQuery, bot: Bot) -> None:
     try:
         tx_id, redirect = await platega.create_payment(
             amount=amount,
-            description=f"PostiqBot {label} ({period_txt})",
+            description=f"PosttiqBot {label} ({period_txt})",
             user_id=callback.from_user.id,
             username=f"@{callback.from_user.username}" if callback.from_user.username else "",
             return_url=f"https://t.me/{me.username}",

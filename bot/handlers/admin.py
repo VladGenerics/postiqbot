@@ -330,7 +330,7 @@ async def cmd_stats(message: Message) -> None:
             .where(Job.status == JOB_PUBLISHED)
         ) or 0
     await message.answer(
-        "📊 <b>Статистика PostiqBot</b>\n\n"
+        "📊 <b>Статистика PosttiqBot</b>\n\n"
         f"👥 Пользователей всего: <b>{users}</b>\n"
         f"✅ С активным доступом: <b>{active}</b> (из них платных: {paid})\n"
         f"🔗 Подключённых аккаунтов: <b>{accounts}</b>\n"
