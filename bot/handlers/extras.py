@@ -23,7 +23,7 @@ from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.i18n import t, user_lang
 from bot.services import platega
-from bot.ui import send_with_icon
+from bot.ui import cleanup_ask, remember_prompt, send_with_icon
 from bot.services.subscription import grant_subscription, status_text
 
 logger = logging.getLogger("postiqbot.extras")
@@ -300,7 +300,13 @@ class SupportFlow(StatesGroup):
 async def open_support(message: Message, state: FSMContext, user_id: int) -> None:
     lang = await user_lang(user_id)
     await state.set_state(SupportFlow.waiting_message)
-    await send_with_icon(message, "support", t("support_prompt", lang), lang=lang)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("c_btn_cancel", lang), callback_data="ask_cancel")]
+    ])
+    prompt = await send_with_icon(
+        message, "support", t("support_prompt", lang), reply_markup=kb, lang=lang
+    )
+    await remember_prompt(state, prompt)
 
 
 @router.callback_query(F.data == "support")
@@ -311,17 +317,19 @@ async def support_start(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(SupportFlow.waiting_message)
 async def support_forward(message: Message, state: FSMContext, bot: Bot) -> None:
-    await state.clear()
     if not message.text:
         await message.answer(t("support_send_text", await user_lang(message.from_user.id)))
         return
+    text = message.text
+    await cleanup_ask(message, state)
+    await state.clear()
     sent = False
     for admin_id in get_settings().admin_id_set:
         try:
             await bot.send_message(
                 admin_id,
                 f"✍️ <b>Поддержка</b> (id <code>{message.from_user.id}</code>):\n\n"
-                f"{message.text}",
+                f"{text}",
             )
             sent = True
         except Exception:  # noqa: BLE001

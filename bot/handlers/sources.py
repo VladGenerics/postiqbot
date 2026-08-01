@@ -17,7 +17,7 @@ from bot.db.models import Connection, PublishAccount, SourceChannel
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.services.source_resolver import resolve_source_channel
-from bot.ui import autodelete, send_with_icon
+from bot.ui import autodelete, cleanup_ask, remember_prompt, send_with_icon
 
 router = Router(name="sources")
 
@@ -77,7 +77,13 @@ async def open_add_source(message: Message, user_id: int, state: FSMContext) -> 
         await send_with_icon(message, "source", t("source_need_account", lang), lang=lang)
         return
     await state.set_state(SourceFlow.waiting_link)
-    await send_with_icon(message, "source", t("source_prompt", lang), lang=lang)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=t("c_btn_cancel", lang), callback_data="ask_cancel")]
+    ])
+    prompt = await send_with_icon(
+        message, "source", t("source_prompt", lang), reply_markup=kb, lang=lang
+    )
+    await remember_prompt(state, prompt)
 
 
 @router.callback_query(F.data == "add_source")
@@ -95,6 +101,7 @@ async def got_link(message: Message, state: FSMContext) -> None:
         return
     platform, channel_id, title = resolved
     source_id = await _get_or_create_source(platform, channel_id, title)
+    await cleanup_ask(message, state)
 
     accounts = await _user_accounts(message.from_user.id)
     if len(accounts) == 1:

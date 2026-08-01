@@ -363,6 +363,7 @@ T: dict[str, dict[str, str]] = {
     "c_btn_to_list": {"ru": "« К списку", "en": "« Back to list"},
     "c_btn_back": {"ru": "« Назад", "en": "« Back"},
     "c_btn_cancel": {"ru": "« Отмена", "en": "« Cancel"},
+    "ask_cancelled": {"ru": "Отменено", "en": "Cancelled"},
     "c_btn_del_yes": {"ru": "🗑 Да, удалить", "en": "🗑 Yes, delete"},
     "c_not_found": {"ru": "Связка не найдена", "en": "Connection not found"},
     "c_not_found_dot": {"ru": "Связка не найдена.", "en": "Connection not found."},
@@ -515,7 +516,6 @@ T: dict[str, dict[str, str]] = {
         "ru": "Пришли новое название папки (до 64 символов).",
         "en": "Send a new folder name (up to 64 characters).",
     },
-    "f_renamed": {"ru": "✅ Папка переименована.", "en": "✅ Folder renamed."},
     "f_btn_delete": {"ru": "🗑 Удалить папку", "en": "🗑 Delete folder"},
     "f_del_confirm": {
         "ru": (

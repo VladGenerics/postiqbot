@@ -4,13 +4,18 @@ from __future__ import annotations
 import asyncio
 import os
 
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     FSInputFile,
+    InlineKeyboardButton,
     InlineKeyboardMarkup,
     InputMediaPhoto,
+    LinkPreviewOptions,
     Message,
     ReplyKeyboardMarkup,
 )
+
+_NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 
 _AUTODEL_TASKS: set[asyncio.Task] = set()
 
@@ -78,15 +83,16 @@ async def send_with_icon(
     text: str,
     reply_markup: InlineKeyboardMarkup | ReplyKeyboardMarkup | None = None,
     lang: str = "ru",
-) -> None:
+) -> Message:
     """Отправить баннер раздела + текст (в подписи, если помещается)."""
     photo = _banner_media(icon, lang)
     if len(text) <= _CAPTION_LIMIT:
         m = await message.answer_photo(photo, caption=text, reply_markup=reply_markup)
-    else:
-        m = await message.answer_photo(photo)
-        await message.answer(text, reply_markup=reply_markup)
+        _remember(icon, lang, m)
+        return m
+    m = await message.answer_photo(photo)
     _remember(icon, lang, m)
+    return await message.answer(text, reply_markup=reply_markup)
 
 
 async def show_screen(
@@ -114,3 +120,67 @@ async def show_screen(
     m = await message.answer_photo(media, caption=caption, reply_markup=reply_markup)
     _remember(icon, lang, m)
     return m
+
+
+_PROMPT_KEY = "_prompt_id"
+_ANCHOR_KEY = "_anchor_id"
+
+
+async def ask(
+    message: Message,
+    state: FSMContext,
+    text: str,
+    lang: str = "ru",
+    *,
+    cancel_data: str = "ask_cancel",
+    cancel_text: str = "« Отмена",
+) -> None:
+    """Спросить текст: отправить приглашение с «Отмена» и запомнить, что убрать."""
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=cancel_text, callback_data=cancel_data)]
+    ])
+    prompt = await message.answer(text, reply_markup=kb, link_preview_options=_NO_PREVIEW)
+    await state.update_data(**{_PROMPT_KEY: prompt.message_id, _ANCHOR_KEY: message.message_id})
+
+
+async def cleanup_ask(message: Message, state: FSMContext) -> None:
+    """Убрать приглашение и ответ пользователя — вызывать в message-хендлере FSM."""
+    data = await state.get_data()
+    prompt_id = data.get(_PROMPT_KEY)
+    if prompt_id:
+        try:
+            await message.bot.delete_message(message.chat.id, prompt_id)
+        except Exception:  # noqa: BLE001 — уже удалено / старше 48ч / нет прав
+            pass
+    try:
+        await message.delete()
+    except Exception:  # noqa: BLE001 — нет прав администратора в чате
+        pass
+
+
+async def remember_prompt(state: FSMContext, prompt: Message) -> None:
+    """Запомнить уже отправленное приглашение (когда его шлёт send_with_icon)."""
+    await state.update_data(**{_PROMPT_KEY: prompt.message_id})
+
+
+async def edit_anchor(
+    message: Message,
+    state: FSMContext,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None = None,
+) -> bool:
+    """Вписать результат в окно, из которого начинали ввод."""
+    data = await state.get_data()
+    anchor_id = data.get(_ANCHOR_KEY)
+    if not anchor_id:
+        return False
+    for edit in ("edit_message_caption", "edit_message_text"):
+        try:
+            fn = getattr(message.bot, edit)
+            kwargs = {"caption" if "caption" in edit else "text": text}
+            await fn(chat_id=message.chat.id, message_id=anchor_id,
+                     reply_markup=reply_markup, **kwargs)
+            return True
+        except Exception:  # noqa: BLE001 — не тот тип сообщения либо правка невозможна
+            continue
+    return False

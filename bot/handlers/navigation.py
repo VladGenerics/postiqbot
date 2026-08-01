@@ -80,6 +80,18 @@ async def cb_toggle_lang(callback) -> None:
     await callback.answer()
 
 
+@router.callback_query(F.data == "ask_cancel")
+async def cb_ask_cancel(callback, state: FSMContext) -> None:
+    """Отмена ввода текста: сбрасываем FSM и убираем приглашение."""
+    lang = await user_lang(callback.from_user.id)
+    await state.clear()
+    try:
+        await callback.message.delete()
+    except Exception:  # noqa: BLE001 — уже удалено / нет прав
+        pass
+    await callback.answer(t("ask_cancelled", lang))
+
+
 @router.message(Command("profile"))
 async def cmd_profile(message: Message, state: FSMContext) -> None:
     await state.clear()

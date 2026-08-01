@@ -25,7 +25,7 @@ from bot.db.models import Connection, Folder
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.services.overlay import make_preview
-from bot.ui import send_with_icon
+from bot.ui import ask, cleanup_ask, edit_anchor, send_with_icon
 
 router = Router(name="connections")
 
@@ -299,7 +299,8 @@ async def rename_start(callback: CallbackQuery, state: FSMContext) -> None:
     conn_id = int(callback.data.split(":", 1)[1])
     await state.update_data(ren_conn_id=conn_id)
     await state.set_state(RenameFlow.waiting_name)
-    await callback.message.answer(t("c_ren_prompt", lang))
+    await ask(callback.message, state, t("c_ren_prompt", lang), lang,
+              cancel_text=t("c_btn_cancel", lang))
     await callback.answer()
 
 
@@ -315,6 +316,7 @@ async def rename_got(message: Message, state: FSMContext) -> None:
         return
     data = await state.get_data()
     conn_id = data.get("ren_conn_id")
+    await cleanup_ask(message, state)
     async with get_session() as session:
         conn = await session.scalar(
             select(Connection)
@@ -327,8 +329,9 @@ async def rename_got(message: Message, state: FSMContext) -> None:
             return
         conn.name = name
         text, markup = _card_text(conn, lang), _card_markup(conn, lang)
+    if not await edit_anchor(message, state, text, markup):
+        await message.answer(text, reply_markup=markup, link_preview_options=_NO_PREVIEW)
     await state.clear()
-    await message.answer(text, reply_markup=markup, link_preview_options=_NO_PREVIEW)
 
 
 async def _folder_screen(user_id: int, folder_id: int, lang: str) -> tuple[str, InlineKeyboardMarkup] | None:
@@ -367,7 +370,8 @@ async def folder_new(callback: CallbackQuery, state: FSMContext) -> None:
     lang = await user_lang(callback.from_user.id)
     await state.update_data(move_conn_id=None)
     await state.set_state(FolderFlow.waiting_new_name)
-    await callback.message.answer(t("f_new_prompt", lang))
+    await ask(callback.message, state, t("f_new_prompt", lang), lang,
+              cancel_text=t("c_btn_cancel", lang))
     await callback.answer()
 
 
@@ -378,7 +382,8 @@ async def folder_new_and_move(callback: CallbackQuery, state: FSMContext) -> Non
     conn_id = int(callback.data.split(":", 1)[1])
     await state.update_data(move_conn_id=conn_id)
     await state.set_state(FolderFlow.waiting_new_name)
-    await callback.message.answer(t("f_new_prompt", lang))
+    await ask(callback.message, state, t("f_new_prompt", lang), lang,
+              cancel_text=t("c_btn_cancel", lang))
     await callback.answer()
 
 
@@ -394,7 +399,7 @@ async def folder_new_got(message: Message, state: FSMContext) -> None:
         return
     data = await state.get_data()
     move_conn_id = data.get("move_conn_id")
-    await state.clear()
+    await cleanup_ask(message, state)
     user_id = message.from_user.id
     async with get_session() as session:
         folder = Folder(user_id=user_id, name=name)
@@ -410,17 +415,19 @@ async def folder_new_got(message: Message, state: FSMContext) -> None:
             if conn is not None:
                 conn.folder_id = folder.id
                 conn.folder = folder
+        if conn is not None:
+            text, markup = _card_text(conn, lang), _card_markup(conn, lang)
     if conn is not None:
-        await message.answer(
-            _card_text(conn, lang), reply_markup=_card_markup(conn, lang),
-            link_preview_options=_NO_PREVIEW,
-        )
+        if not await edit_anchor(message, state, text, markup):
+            await message.answer(text, reply_markup=markup, link_preview_options=_NO_PREVIEW)
+        await state.clear()
         return
     rows, _ = await _overview_rows(user_id, lang)
-    await message.answer(
-        t("f_created", lang, name=html.escape(name)) + "\n\n" + t("mylist_title", lang),
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
-    )
+    text = t("f_created", lang, name=html.escape(name)) + "\n\n" + t("mylist_title", lang)
+    markup = InlineKeyboardMarkup(inline_keyboard=rows)
+    if not await edit_anchor(message, state, text, markup):
+        await message.answer(text, reply_markup=markup)
+    await state.clear()
 
 
 @router.callback_query(F.data.startswith("fld_ren:"))
@@ -429,7 +436,8 @@ async def folder_rename_start(callback: CallbackQuery, state: FSMContext) -> Non
     folder_id = int(callback.data.split(":", 1)[1])
     await state.update_data(fld_id=folder_id)
     await state.set_state(FolderFlow.waiting_rename)
-    await callback.message.answer(t("f_ren_prompt", lang))
+    await ask(callback.message, state, t("f_ren_prompt", lang), lang,
+              cancel_text=t("c_btn_cancel", lang))
     await callback.answer()
 
 
@@ -445,6 +453,7 @@ async def folder_rename_got(message: Message, state: FSMContext) -> None:
         return
     data = await state.get_data()
     folder_id = data.get("fld_id")
+    await cleanup_ask(message, state)
     async with get_session() as session:
         folder = await session.scalar(
             select(Folder).where(Folder.id == folder_id, Folder.user_id == message.from_user.id)
@@ -454,11 +463,10 @@ async def folder_rename_got(message: Message, state: FSMContext) -> None:
             await message.answer(t("f_not_found", lang))
             return
         folder.name = name
-    await state.clear()
     screen = await _folder_screen(message.from_user.id, folder_id, lang)
-    if screen is not None:
-        await message.answer(t("f_renamed", lang))
+    if screen is not None and not await edit_anchor(message, state, screen[0], screen[1]):
         await message.answer(screen[0], reply_markup=screen[1])
+    await state.clear()
 
 
 @router.callback_query(F.data.startswith("fld_del:"))
@@ -703,7 +711,8 @@ async def sched_int(callback: CallbackQuery, state: FSMContext) -> None:
     conn_id = int(callback.data.split(":", 1)[1])
     await state.update_data(conn_id=conn_id)
     await state.set_state(SchedFlow.waiting_interval)
-    await callback.message.answer(t("c_int_prompt", lang))
+    await ask(callback.message, state, t("c_int_prompt", lang), lang,
+              cancel_text=t("c_btn_cancel", lang))
     await callback.answer()
 
 
@@ -715,18 +724,19 @@ async def got_interval(message: Message, state: FSMContext) -> None:
         await message.answer(t("c_int_bad", lang))
         return
     data = await state.get_data()
+    await cleanup_ask(message, state)
     conn = await _set_schedule(
         data["conn_id"], message.from_user.id,
         schedule_mode="interval", interval_minutes=int(text),
     )
-    await state.clear()
     if conn is None:
+        await state.clear()
         await message.answer(t("c_not_found_dot", lang))
         return
-    await message.answer(
-        _card_text(conn, lang), reply_markup=_card_markup(conn, lang),
-        link_preview_options=_NO_PREVIEW,
-    )
+    card, markup = _card_text(conn, lang), _card_markup(conn, lang)
+    if not await edit_anchor(message, state, card, markup):
+        await message.answer(card, reply_markup=markup, link_preview_options=_NO_PREVIEW)
+    await state.clear()
 
 
 @router.callback_query(F.data.startswith("sched_times:"))
@@ -735,7 +745,8 @@ async def sched_times(callback: CallbackQuery, state: FSMContext) -> None:
     conn_id = int(callback.data.split(":", 1)[1])
     await state.update_data(conn_id=conn_id)
     await state.set_state(SchedFlow.waiting_times)
-    await callback.message.answer(t("c_times_prompt", lang))
+    await ask(callback.message, state, t("c_times_prompt", lang), lang,
+              cancel_text=t("c_btn_cancel", lang))
     await callback.answer()
 
 
@@ -759,18 +770,19 @@ async def got_times(message: Message, state: FSMContext) -> None:
         await message.answer(t("c_times_bad", lang))
         return
     data = await state.get_data()
+    await cleanup_ask(message, state)
     conn = await _set_schedule(
         data["conn_id"], message.from_user.id,
         schedule_mode="times", post_times=sorted(set(times)), tz=tz,
     )
-    await state.clear()
     if conn is None:
+        await state.clear()
         await message.answer(t("c_not_found_dot", lang))
         return
-    await message.answer(
-        _card_text(conn, lang), reply_markup=_card_markup(conn, lang),
-        link_preview_options=_NO_PREVIEW,
-    )
+    card, markup = _card_text(conn, lang), _card_markup(conn, lang)
+    if not await edit_anchor(message, state, card, markup):
+        await message.answer(card, reply_markup=markup, link_preview_options=_NO_PREVIEW)
+    await state.clear()
 
 
 def _overlay_markup(conn: Connection, lang: str) -> InlineKeyboardMarkup:
@@ -848,7 +860,8 @@ async def overlay_menu(callback: CallbackQuery, state: FSMContext) -> None:
     else:
         await state.update_data(conn_id=conn_id)
         await state.set_state(OverlayFlow.waiting_image)
-        await callback.message.answer(t("c_ovl_prompt", lang) + t("c_ovl_hint", lang))
+        await ask(callback.message, state, t("c_ovl_prompt", lang) + t("c_ovl_hint", lang),
+                  lang, cancel_text=t("c_btn_cancel", lang))
     await callback.answer()
 
 
@@ -858,7 +871,8 @@ async def overlay_replace(callback: CallbackQuery, state: FSMContext) -> None:
     conn_id = int(callback.data.split(":", 1)[1])
     await state.update_data(conn_id=conn_id)
     await state.set_state(OverlayFlow.waiting_image)
-    await callback.message.answer(t("c_ovl_prompt_replace", lang) + t("c_ovl_hint", lang))
+    await ask(callback.message, state, t("c_ovl_prompt_replace", lang) + t("c_ovl_hint", lang),
+              lang, cancel_text=t("c_btn_cancel", lang))
     await callback.answer()
 
 
@@ -870,6 +884,7 @@ async def overlay_got_image(message: Message, state: FSMContext) -> None:
         await message.answer(t("c_ovl_not_image", lang))
         return
     data = await state.get_data()
+    await cleanup_ask(message, state)
     async with get_session() as session:
         conn = await session.scalar(
             select(Connection)
