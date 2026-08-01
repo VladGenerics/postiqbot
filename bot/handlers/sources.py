@@ -123,8 +123,12 @@ async def chose_account(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     source_id = data["source_id"]
     title = data.get("source_title", t("src_default_title", lang))
-    await _finish(callback.message, state, account_id, source_id, title)
     await callback.answer()
+    try:
+        await callback.message.delete()
+    except Exception:  # noqa: BLE001 — уже удалено / нет прав
+        pass
+    await _finish(callback.message, state, account_id, source_id, title)
 
 
 async def _finish(
