@@ -15,6 +15,19 @@ from aiogram.types import (
 _AUTODEL_TASKS: set[asyncio.Task] = set()
 
 
+def spawn(coro) -> None:
+    """Запустить корутину в фоне (fire-and-forget), удержав ссылку от GC."""
+    async def _guarded() -> None:
+        try:
+            await coro
+        except Exception:  # noqa: BLE001 — сообщение удалено / нет прав / сеть
+            pass
+
+    task = asyncio.create_task(_guarded())
+    _AUTODEL_TASKS.add(task)
+    task.add_done_callback(_AUTODEL_TASKS.discard)
+
+
 def autodelete(message: Message, delay: float = 5.0) -> None:
     """Удалить сообщение через delay секунд (fire-and-forget)."""
     async def _later() -> None:
