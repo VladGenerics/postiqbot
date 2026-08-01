@@ -25,7 +25,7 @@ from bot.db.models import Connection, Folder
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.services.overlay import make_preview
-from bot.ui import send_with_icon, spawn
+from bot.ui import send_with_icon
 
 router = Router(name="connections")
 
@@ -982,14 +982,7 @@ async def do_delete(callback: CallbackQuery) -> None:
             await callback.answer(t("c_not_found", lang), show_alert=True)
             return
         await session.delete(conn)
-    await _edit(callback.message, t("c_deleted", lang))
-    await callback.answer(t("c_deleted_toast", lang))
-    spawn(_back_to_list(callback.message, callback.from_user.id, lang))
-
-
-async def _back_to_list(message: Message, user_id: int, lang: str, delay: float = 2.0) -> None:
-    """Через delay секунд вернуть окно к списку связок (после «связка удалена»)."""
-    await asyncio.sleep(delay)
-    rows, has_any = await _overview_rows(user_id, lang)
+    rows, has_any = await _overview_rows(callback.from_user.id, lang)
     title = t("mylist_title" if has_any else "mylist_empty", lang)
-    await _edit(message, title, InlineKeyboardMarkup(inline_keyboard=rows))
+    await _edit(callback.message, title, InlineKeyboardMarkup(inline_keyboard=rows))
+    await callback.answer(t("c_deleted_toast", lang))
