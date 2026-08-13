@@ -25,6 +25,7 @@ from bot.db.models import Connection, Folder
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.services.overlay import make_preview
+from bot.services.tiktok_policy import overlay_allowed
 from bot.ui import ask, cleanup_ask, edit_anchor, send_with_icon
 
 router = Router(name="connections")
@@ -73,9 +74,19 @@ def _sched_desc(conn: Connection, lang: str) -> str:
 
 
 def _ovl_desc(conn: Connection, lang: str) -> str:
+    if not _ovl_allowed(conn):
+        return t("c_ovl_blocked", lang)
     if conn.overlay_file_id and conn.overlay_position:
         return t("c_ovl_on", lang, pos=conn.overlay_position, scale=conn.overlay_scale)
     return t("c_ovl_off", lang)
+
+
+def _ovl_allowed(conn: Connection) -> bool:
+    """Оверлей запрещён для связок, публикующих через TikTok Direct Post."""
+    return overlay_allowed(
+        conn.publish_account.platform if conn.publish_account else None,
+        conn.source_channel.platform if conn.source_channel else None,
+    )
 
 
 _PRIVACY_NEXT = {"private": "unlisted", "unlisted": "public", "public": "private"}
@@ -854,6 +865,9 @@ async def overlay_menu(callback: CallbackQuery, state: FSMContext) -> None:
     conn = await _load_one(conn_id, callback.from_user.id)
     if conn is None:
         await callback.answer(t("c_not_found", lang), show_alert=True)
+        return
+    if not _ovl_allowed(conn):
+        await callback.answer(t("c_ovl_blocked_alert", lang), show_alert=True)
         return
     if conn.overlay_file_id:
         await _refresh_preview(callback, conn, lang)

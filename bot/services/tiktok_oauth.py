@@ -11,14 +11,17 @@ AUTHORIZE_URL = "https://www.tiktok.com/v2/auth/authorize/"
 TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 USERINFO_URL = "https://open.tiktokapis.com/v2/user/info/"
 
-SCOPES = "user.info.basic,video.upload"
+def get_scopes() -> str:
+    if get_settings().tiktok_direct_post:
+        return "user.info.basic,video.publish"
+    return "user.info.basic,video.upload"
 
 
 def build_auth_url(state: str) -> str:
     s = get_settings()
     params = {
         "client_key": s.tiktok_client_key,
-        "scope": SCOPES,
+        "scope": get_scopes(),
         "response_type": "code",
         "redirect_uri": s.tiktok_redirect_uri,
         "state": state,

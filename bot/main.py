@@ -20,6 +20,7 @@ from bot.handlers import (
     navigation,
     sources,
     start,
+    tiktok_confirm,
 )
 from bot.middlewares.channel_gate import ChannelGateMiddleware
 from bot.middlewares.private_mode import PrivateModeMiddleware
@@ -46,6 +47,7 @@ def build_dispatcher() -> Dispatcher:
     dp.include_router(accounts.router)
     dp.include_router(sources.router)
     dp.include_router(connections.router)
+    dp.include_router(tiktok_confirm.router)
     dp.include_router(extras.router)
     dp.include_router(admin.router)
     return dp

@@ -1,13 +1,40 @@
-"""TikTok Content Posting API — загрузка видео в «инбокс» (черновики)."""
+"""TikTok Content Posting API — публикация видео."""
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
 
 import httpx
 
+logger = logging.getLogger("postiqbot.tiktok_api")
+
 INBOX_INIT_URL = "https://open.tiktokapis.com/v2/post/publish/inbox/video/init/"
 CREATOR_INFO_URL = "https://open.tiktokapis.com/v2/post/publish/creator_info/query/"
 DIRECT_INIT_URL = "https://open.tiktokapis.com/v2/post/publish/video/init/"
+STATUS_URL = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
+
+PRIVACY_LEVELS = (
+    "PUBLIC_TO_EVERYONE",
+    "FOLLOWER_OF_CREATOR",
+    "MUTUAL_FOLLOW_FRIENDS",
+    "SELF_ONLY",
+)
+
+
+class TikTokScopeError(RuntimeError):
+    """Токен выдан без нужного scope — пользователю надо переподключить аккаунт."""
+
+
+def _raise_for_error(payload: dict, ctx: str) -> None:
+    """Разобрать поле error ответа TikTok."""
+    err = (payload.get("error") or {}) if isinstance(payload, dict) else {}
+    code = err.get("code") or ""
+    if code and code != "ok":
+        msg = f"TikTok {ctx}: {code} {err.get('message', '')}".strip()
+        if "scope" in code or "scope" in str(err.get("message", "")).lower():
+            raise TikTokScopeError(msg)
+        raise ValueError(msg)
 
 
 async def upload_to_inbox(access_token: str, file_path: str) -> str:
@@ -35,26 +62,50 @@ async def upload_to_inbox(access_token: str, file_path: str) -> str:
         publish_id = data.get("publish_id")
         upload_url = data.get("upload_url")
         if not publish_id or not upload_url:
+            _raise_for_error(payload, "inbox init")
             raise ValueError(f"TikTok inbox init error: {payload}")
 
-        with open(file_path, "rb") as f:
-            content = f.read()
-        put = await client.put(
-            upload_url,
-            content=content,
-            headers={
-                "Content-Type": "video/mp4",
-                "Content-Range": f"bytes 0-{size - 1}/{size}",
-            },
-        )
-        if put.status_code not in (200, 201):
-            raise ValueError(f"TikTok upload failed: {put.status_code} {put.text}")
+        await _put_file(client, upload_url, file_path, size)
 
     return publish_id
 
 
-async def direct_post(access_token: str, file_path: str, title: str) -> str:
+async def get_creator_info(access_token: str) -> dict:
+    """Данные аккаунта для карточки подтверждения."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(
+            CREATOR_INFO_URL,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+            },
+        )
+    payload = resp.json()
+    data = payload.get("data") or {}
+    if not data.get("privacy_level_options"):
+        _raise_for_error(payload, "creator_info")
+        raise ValueError(f"TikTok creator_info error: {payload}")
+    return data
+
+
+async def direct_post(
+    access_token: str,
+    file_path: str,
+    title: str,
+    *,
+    privacy: str,
+    disable_comment: bool = True,
+    disable_duet: bool = True,
+    disable_stitch: bool = True,
+    brand_content_toggle: bool = False,
+    brand_organic_toggle: bool = False,
+) -> str:
     """Прямая публикация в TikTok (Direct Post, scope video.publish)."""
+    if not privacy:
+        raise ValueError("privacy_level не выбран пользователем")
+    if brand_content_toggle and privacy == "SELF_ONLY":
+        raise ValueError("Branded content нельзя публиковать как SELF_ONLY")
+
     size = os.path.getsize(file_path)
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -62,18 +113,26 @@ async def direct_post(access_token: str, file_path: str, title: str) -> str:
     }
     async with httpx.AsyncClient(timeout=180) as client:
         ci = await client.post(CREATOR_INFO_URL, headers=headers)
-        options = (ci.json().get("data") or {}).get("privacy_level_options") or []
-        privacy = (
-            "PUBLIC_TO_EVERYONE" if "PUBLIC_TO_EVERYONE" in options
-            else (options[0] if options else "SELF_ONLY")
-        )
+        ci_payload = ci.json()
+        options = (ci_payload.get("data") or {}).get("privacy_level_options") or []
+        if not options:
+            _raise_for_error(ci_payload, "creator_info")
+            raise ValueError(f"TikTok creator_info error: {ci_payload}")
+        if privacy not in options:
+            raise ValueError(
+                f"privacy_level_option_mismatch: {privacy} недоступен "
+                f"(разрешено: {', '.join(options)})"
+            )
+
         init_body = {
             "post_info": {
                 "title": (title or "")[:150],
                 "privacy_level": privacy,
-                "disable_comment": False,
-                "disable_duet": False,
-                "disable_stitch": False,
+                "disable_comment": disable_comment,
+                "disable_duet": disable_duet,
+                "disable_stitch": disable_stitch,
+                "brand_content_toggle": brand_content_toggle,
+                "brand_organic_toggle": brand_organic_toggle,
             },
             "source_info": {
                 "source": "FILE_UPLOAD",
@@ -83,18 +142,63 @@ async def direct_post(access_token: str, file_path: str, title: str) -> str:
             },
         }
         init = await client.post(DIRECT_INIT_URL, json=init_body, headers=headers)
-        data = init.json().get("data") or {}
+        payload = init.json()
+        data = payload.get("data") or {}
         publish_id = data.get("publish_id")
         upload_url = data.get("upload_url")
         if not publish_id or not upload_url:
-            raise ValueError(f"TikTok direct init error: {init.json()}")
-        with open(file_path, "rb") as f:
-            content = f.read()
-        put = await client.put(
-            upload_url,
-            content=content,
-            headers={"Content-Type": "video/mp4", "Content-Range": f"bytes 0-{size - 1}/{size}"},
-        )
-        if put.status_code not in (200, 201):
-            raise ValueError(f"TikTok direct upload failed: {put.status_code} {put.text}")
+            _raise_for_error(payload, "direct init")
+            raise ValueError(f"TikTok direct init error: {payload}")
+
+        await _put_file(client, upload_url, file_path, size)
+
     return publish_id
+
+
+async def _put_file(
+    client: httpx.AsyncClient, upload_url: str, file_path: str, size: int
+) -> None:
+    """Залить байты одним чанком на выданный TikTok upload_url."""
+    with open(file_path, "rb") as f:
+        content = f.read()
+    put = await client.put(
+        upload_url,
+        content=content,
+        headers={
+            "Content-Type": "video/mp4",
+            "Content-Range": f"bytes 0-{size - 1}/{size}",
+        },
+    )
+    if put.status_code not in (200, 201):
+        raise ValueError(f"TikTok upload failed: {put.status_code} {put.text}")
+
+
+async def poll_publish_status(
+    access_token: str, publish_id: str, *, attempts: int = 10, delay: float = 6.0
+) -> str:
+    """Дождаться реального завершения публикации."""
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+    status = "PROCESSING_UPLOAD"
+    async with httpx.AsyncClient(timeout=30) as client:
+        for _ in range(attempts):
+            await asyncio.sleep(delay)
+            try:
+                resp = await client.post(
+                    STATUS_URL, json={"publish_id": publish_id}, headers=headers
+                )
+                payload = resp.json()
+            except Exception:  # noqa: BLE001 — сеть моргнула, пробуем ещё
+                logger.warning("Опрос статуса %s не удался, повтор", publish_id)
+                continue
+            data = payload.get("data") or {}
+            status = data.get("status") or status
+            if status == "PUBLISH_COMPLETE":
+                return status
+            if status == "FAILED":
+                reason = data.get("fail_reason") or payload
+                raise ValueError(f"TikTok publish failed: {reason}")
+    logger.info("Статус publish_id=%s не финализирован: %s", publish_id, status)
+    return status

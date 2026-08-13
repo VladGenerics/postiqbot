@@ -329,6 +329,13 @@ T: dict[str, dict[str, str]] = {
     "c_sched_now": {"ru": "⚡ сразу", "en": "⚡ immediately"},
     "c_ovl_on": {"ru": "вкл ({pos}, {scale}%)", "en": "on ({pos}, {scale}%)"},
     "c_ovl_off": {"ru": "выкл", "en": "off"},
+    "c_ovl_blocked": {"ru": "недоступно для TikTok", "en": "unavailable for TikTok"},
+    "c_ovl_blocked_alert": {
+        "ru": "Для публикации в ленту TikTok оверлей недоступен: правила TikTok "
+              "запрещают накладывать логотипы и водяные знаки на видео.",
+        "en": "Overlay is unavailable when posting to a TikTok feed: TikTok rules "
+              "prohibit superimposing logos or watermarks on the video.",
+    },
     "c_priv_private": {"ru": "🔒 приватное", "en": "🔒 private"},
     "c_priv_unlisted": {"ru": "🔗 по ссылке", "en": "🔗 unlisted"},
     "c_priv_public": {"ru": "🌍 публичное", "en": "🌍 public"},
@@ -682,6 +689,16 @@ T: dict[str, dict[str, str]] = {
             "Open TikTok → Profile → Drafts → publish it."
         ),
     },
+    "pub_tt_live": {
+        "ru": (
+            "✅ Видео опубликовано в TikTok: <i>{title}</i>\n"
+            "Оно появится в профиле через минуту — TikTok ещё обрабатывает файл."
+        ),
+        "en": (
+            "✅ Video published to TikTok: <i>{title}</i>\n"
+            "It shows up on your profile in a minute — TikTok is still processing it."
+        ),
+    },
     "pub_fail": {
         "ru": "❌ Не удалось опубликовать «{title}»: {error}",
         "en": "❌ Couldn't publish «{title}»: {error}",
@@ -696,6 +713,158 @@ T: dict[str, dict[str, str]] = {
             "⚠️ TikTok rejected «{title}»: too many unpublished drafts.\n"
             "Open TikTok → Profile → Drafts, publish or delete old ones, then retry."
         ),
+    },
+    "pub_tt_rate_limit": {
+        "ru": (
+            "⚠️ TikTok не принял «{title}»: исчерпан суточный лимит публикаций "
+            "для аккаунта.\nПопробуй ещё раз через несколько часов."
+        ),
+        "en": (
+            "⚠️ TikTok rejected «{title}»: the account hit its daily posting limit.\n"
+            "Try again in a few hours."
+        ),
+    },
+    "ttc_header": {
+        "ru": "🎵 <b>Новое видео готово к публикации в TikTok</b>",
+        "en": "🎵 <b>New video ready to post on TikTok</b>",
+    },
+    "ttc_account": {
+        "ru": "👤 Аккаунт: <b>{nickname}</b>",
+        "en": "👤 Account: <b>{nickname}</b>",
+    },
+    "ttc_privacy_ask": {
+        "ru": "👁 <b>Кто увидит видео — выбери ниже</b> (обязательно)",
+        "en": "👁 <b>Who can see it — choose below</b> (required)",
+    },
+    "ttc_privacy_is": {
+        "ru": "👁 Кто увидит: <b>{value}</b>",
+        "en": "👁 Visibility: <b>{value}</b>",
+    },
+    "ttc_prv_public": {"ru": "Все (Public)", "en": "Everyone (Public)"},
+    "ttc_prv_followers": {"ru": "Подписчики", "en": "Followers"},
+    "ttc_prv_friends": {"ru": "Друзья", "en": "Friends"},
+    "ttc_prv_private": {"ru": "Только я", "en": "Only me"},
+    "ttc_tog_comment": {"ru": "Комментарии", "en": "Comments"},
+    "ttc_tog_duet": {"ru": "Дуэты", "en": "Duet"},
+    "ttc_tog_stitch": {"ru": "Стичи", "en": "Stitch"},
+    "ttc_tog_blocked": {
+        "ru": "Эта настройка отключена в самом аккаунте TikTok — изменить нельзя.",
+        "en": "This setting is turned off in your TikTok account — can't change it here.",
+    },
+    "ttc_brand_organic": {
+        "ru": "Продвигаю свой бренд",
+        "en": "Promoting my own brand",
+    },
+    "ttc_brand_content": {
+        "ru": "Реклама другого бренда",
+        "en": "Paid partnership",
+    },
+    "ttc_brand_not_private": {
+        "ru": "Рекламу нельзя публиковать как «Только я» — смени приватность.",
+        "en": "Branded content can't be private — change the visibility first.",
+    },
+    "ttc_music_notice": {
+        "ru": (
+            "Публикуя, ты соглашаешься с "
+            "<a href=\"https://www.tiktok.com/legal/page/global/music-usage-confirmation/en\">"
+            "Music Usage Confirmation</a> TikTok."
+        ),
+        "en": (
+            "By posting, you agree to TikTok's "
+            "<a href=\"https://www.tiktok.com/legal/page/global/music-usage-confirmation/en\">"
+            "Music Usage Confirmation</a>."
+        ),
+    },
+    "ttc_music_notice_brand": {
+        "ru": (
+            "Публикуя, ты соглашаешься с "
+            "<a href=\"https://www.tiktok.com/legal/page/global/bc-policy/en\">"
+            "Branded Content Policy</a> и "
+            "<a href=\"https://www.tiktok.com/legal/page/global/music-usage-confirmation/en\">"
+            "Music Usage Confirmation</a> TikTok."
+        ),
+        "en": (
+            "By posting, you agree to TikTok's "
+            "<a href=\"https://www.tiktok.com/legal/page/global/bc-policy/en\">"
+            "Branded Content Policy</a> and "
+            "<a href=\"https://www.tiktok.com/legal/page/global/music-usage-confirmation/en\">"
+            "Music Usage Confirmation</a>."
+        ),
+    },
+    "ttc_btn_title": {"ru": "✏️ Изменить подпись", "en": "✏️ Edit caption"},
+    "ttc_btn_go": {"ru": "✅ Опубликовать", "en": "✅ Post it"},
+    "ttc_btn_no": {"ru": "❌ Отменить", "en": "❌ Cancel"},
+    "ttc_ask_title": {
+        "ru": "Пришли новую подпись к видео (до 150 символов).",
+        "en": "Send the new caption for the video (up to 150 characters).",
+    },
+    "ttc_title_saved": {
+        "ru": "✅ Подпись обновлена: <i>{title}</i>",
+        "en": "✅ Caption updated: <i>{title}</i>",
+    },
+    "ttc_need_privacy": {
+        "ru": "Сначала выбери, кто увидит видео.",
+        "en": "Choose who can see the video first.",
+    },
+    "ttc_confirmed": {
+        "ru": (
+            "✅ Принято: <i>{title}</i>\n"
+            "Видео выйдет в TikTok по расписанию связки."
+        ),
+        "en": (
+            "✅ Confirmed: <i>{title}</i>\n"
+            "The video will go live on TikTok per your connection schedule."
+        ),
+    },
+    "ttc_cancelled": {
+        "ru": "❌ Публикация отменена: <i>{title}</i>. Файл удалён.",
+        "en": "❌ Post cancelled: <i>{title}</i>. File removed.",
+    },
+    "ttc_expired": {
+        "ru": (
+            "⏳ Публикация отменена: <i>{title}</i>\n"
+            "Подтверждение не пришло за {hours} ч, видео удалено с сервера."
+        ),
+        "en": (
+            "⏳ Post cancelled: <i>{title}</i>\n"
+            "No confirmation within {hours}h, the video was removed from the server."
+        ),
+    },
+    "ttc_too_long": {
+        "ru": (
+            "⚠️ «{title}» не подходит для TikTok: длительность {duration} с, "
+            "а лимит аккаунта — {limit} с."
+        ),
+        "en": (
+            "⚠️ «{title}» doesn't fit TikTok: it's {duration}s long, "
+            "the account limit is {limit}s."
+        ),
+    },
+    "ttc_gone": {
+        "ru": "Видео больше не найдено.",
+        "en": "This video no longer exists.",
+    },
+    "ttc_stale": {
+        "ru": "Эта карточка уже неактуальна — публикация обработана или отменена.",
+        "en": "This card is out of date — the post was already handled or cancelled.",
+    },
+    "ttc_err_creator": {
+        "ru": "TikTok не отвечает. Попробуй нажать ещё раз через минуту.",
+        "en": "TikTok isn't responding. Try tapping again in a minute.",
+    },
+    "pub_tt_reconnect": {
+        "ru": (
+            "🔑 Не удалось опубликовать «{title}»: доступ к TikTok устарел.\n"
+            "Подключи аккаунт заново — после этого публикации продолжатся."
+        ),
+        "en": (
+            "🔑 Couldn't publish «{title}»: the TikTok access is out of date.\n"
+            "Reconnect the account and posting will resume."
+        ),
+    },
+    "btn_reconnect_tiktok": {
+        "ru": "🔄 Переподключить TikTok",
+        "en": "🔄 Reconnect TikTok",
     },
     "sup_greeting": {
         "ru": (

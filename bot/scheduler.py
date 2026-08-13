@@ -11,7 +11,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from bot.config import get_settings
 from bot.services.downloader import process_pending
 from bot.services.payments_service import reconcile_payments
-from bot.services.publisher import process_scheduled
+from bot.services.publisher import process_scheduled, sweep_awaiting
 from bot.services.rss_monitor import poll_sources
 from bot.services.subscription import warn_expiring
 
@@ -58,6 +58,15 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         warn_expiring,
         IntervalTrigger(hours=1),
         id="warn_expiring",
+        args=[bot],
+        max_instances=1,
+        coalesce=True,
+    )
+
+    scheduler.add_job(
+        sweep_awaiting,
+        IntervalTrigger(hours=1),
+        id="sweep_awaiting",
         args=[bot],
         max_instances=1,
         coalesce=True,

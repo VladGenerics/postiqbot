@@ -8,10 +8,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
 from bot.db.models import (
+    JOB_AWAITING,
     JOB_FAILED,
     JOB_PENDING,
     JOB_PUBLISHED,
@@ -20,15 +22,17 @@ from bot.db.models import (
     Connection,
     Job,
     PublishAccount,
+    SourceChannel,
     User,
 )
 from bot.config import UNLIMITED, get_settings
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.services.crypto import decrypt
-from bot.services import tiktok_api, tiktok_oauth
+from bot.services import tiktok_api, tiktok_tokens
 from bot.services.overlay import apply_overlay
 from bot.services.subscription import inc_videos_used
+from bot.services.tiktok_policy import is_direct_post
 from bot.services.youtube_api import upload_video
 from bot.services.youtube_oauth import credentials_from_refresh_token
 
@@ -50,6 +54,19 @@ class _Task:
     overlay_file_id: str | None = None
     overlay_position: str | None = None
     overlay_scale: int = 30
+    account_id: int = 0
+    source_platform: str = ""
+    tt_privacy: str | None = None
+    tt_disable_comment: bool = True
+    tt_disable_duet: bool = True
+    tt_disable_stitch: bool = True
+    tt_brand_organic: bool = False
+    tt_brand_content: bool = False
+
+    @property
+    def tt_direct(self) -> bool:
+        """Публиковать напрямую (а не в черновики). См. tiktok_policy."""
+        return is_direct_post(self.platform, self.source_platform)
 
 
 def _start_of_day(now: datetime) -> datetime:
@@ -100,7 +117,8 @@ async def _claim_due(limit: int) -> list[_Task]:
                 .options(
                     joinedload(Job.connection)
                     .joinedload(Connection.publish_account)
-                    .joinedload(PublishAccount.project)
+                    .joinedload(PublishAccount.project),
+                    joinedload(Job.connection).joinedload(Connection.source_channel),
                 )
                 .limit(limit * 8)
                 .with_for_update(skip_locked=True, of=Job)
@@ -183,7 +201,18 @@ async def _claim_due(limit: int) -> list[_Task]:
                 )
             elif acc.platform == "tiktok":
                 job.status = JOB_PUBLISHING
-                tasks.append(_Task(platform="tiktok", **common))
+                tasks.append(_Task(
+                    platform="tiktok",
+                    account_id=acc.id,
+                    source_platform=conn.source_channel.platform,
+                    tt_privacy=job.tt_privacy,
+                    tt_disable_comment=job.tt_disable_comment,
+                    tt_disable_duet=job.tt_disable_duet,
+                    tt_disable_stitch=job.tt_disable_stitch,
+                    tt_brand_organic=job.tt_brand_organic,
+                    tt_brand_content=job.tt_brand_content,
+                    **common,
+                ))
             else:
                 continue
             conn_used[conn.id] = conn_used.get(conn.id, 0) + 1
@@ -191,7 +220,9 @@ async def _claim_due(limit: int) -> list[_Task]:
     return tasks
 
 
-async def _finalize(job_id: int, *, remote_id: str | None, error: str | None) -> None:
+async def _finalize(
+    job_id: int, *, remote_id: str | None, error: str | None, platform: str = ""
+) -> None:
     async with get_session() as session:
         job = await session.get(Job, job_id)
         if not job:
@@ -202,6 +233,8 @@ async def _finalize(job_id: int, *, remote_id: str | None, error: str | None) ->
         else:
             job.status = JOB_PUBLISHED
             job.youtube_video_id = remote_id
+            if platform == "tiktok":
+                job.tt_publish_id = remote_id
 
 
 async def _requeue(job_id: int) -> None:
@@ -226,11 +259,22 @@ async def _publish(task: _Task, path: str) -> str:
     if task.platform == "youtube":
         return await asyncio.to_thread(_yt_upload, task, path)
     if task.platform == "tiktok":
-        tokens = await tiktok_oauth.refresh_access_token(task.refresh_token)
-        access = tokens["access_token"]
-        if get_settings().tiktok_direct_post:
-            return await tiktok_api.direct_post(access, path, task.title)
-        return await tiktok_api.upload_to_inbox(access, path)
+        access = await tiktok_tokens.access_token(task.account_id)
+        if not task.tt_direct:
+            return await tiktok_api.upload_to_inbox(access, path)
+        publish_id = await tiktok_api.direct_post(
+            access,
+            path,
+            task.title,
+            privacy=task.tt_privacy or "",
+            disable_comment=task.tt_disable_comment,
+            disable_duet=task.tt_disable_duet,
+            disable_stitch=task.tt_disable_stitch,
+            brand_content_toggle=task.tt_brand_content,
+            brand_organic_toggle=task.tt_brand_organic,
+        )
+        await tiktok_api.poll_publish_status(access, publish_id)
+        return publish_id
     raise ValueError(f"Неизвестная платформа: {task.platform}")
 
 
@@ -250,6 +294,9 @@ async def _prepare_path(bot: Bot, task: _Task) -> tuple[str, list[str]]:
     """Вернуть (путь для публикации, список временных файлов на удаление)."""
     if not (task.overlay_file_id and task.overlay_position):
         return task.local_path, []
+    if task.tt_direct:
+        logger.info("job=%d: оверлей пропущен (TikTok Direct Post)", task.job_id)
+        return task.local_path, []
     overlay_tmp = await _download_overlay(bot, task.overlay_file_id)
     try:
         overlaid = await asyncio.to_thread(
@@ -264,7 +311,8 @@ async def _prepare_path(bot: Bot, task: _Task) -> tuple[str, list[str]]:
 def _success_msg(task: _Task, remote_id: str, lang: str) -> str:
     if task.platform == "youtube":
         return t("pub_yt_ok", lang, id=remote_id, title=task.title, privacy=task.privacy)
-    return t("pub_tt_ok", lang, title=task.title)
+    key = "pub_tt_live" if task.tt_direct else "pub_tt_ok"
+    return t(key, lang, title=task.title)
 
 
 async def process_scheduled(bot: Bot, limit: int = 3) -> int:
@@ -287,7 +335,8 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
         try:
             publish_path, extra_files = await _prepare_path(bot, task)
             remote_id = await _publish(task, publish_path)
-            await _finalize(task.job_id, remote_id=remote_id, error=None)
+            await _finalize(task.job_id, remote_id=remote_id, error=None,
+                            platform=task.platform)
             await inc_videos_used(task.user_id)
             published += 1
             logger.info("Опубликовано job=%d (%s) → %s", task.job_id, task.platform, remote_id)
@@ -295,11 +344,22 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
         except Exception as exc:  # noqa: BLE001
             logger.exception("Ошибка публикации job=%d", task.job_id)
             await _finalize(task.job_id, remote_id=None, error=str(exc))
-            if "spam_risk_too_many_pending_share" in str(exc):
+            kb = None
+            if isinstance(exc, tiktok_api.TikTokScopeError):
+                msg = t("pub_tt_reconnect", lang, title=task.title)
+                kb = InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(
+                        text=t("btn_reconnect_tiktok", lang),
+                        callback_data="connect_tiktok",
+                    )
+                ]])
+            elif "spam_risk_too_many_pending_share" in str(exc):
                 msg = t("pub_tt_too_many", lang, title=task.title)
+            elif "spam_risk_too_many_posts" in str(exc):
+                msg = t("pub_tt_rate_limit", lang, title=task.title)
             else:
                 msg = t("pub_fail", lang, title=task.title, error=str(exc))
-            await _notify(bot, task.user_id, msg)
+            await _notify(bot, task.user_id, msg, reply_markup=kb)
         finally:
             _cleanup(task.local_path)
             for f in extra_files:
@@ -315,8 +375,94 @@ def _cleanup(path: str) -> None:
         logger.warning("Не смог удалить файл %s", path)
 
 
-async def _notify(bot: Bot, user_id: int, text: str) -> None:
+async def _notify(bot: Bot, user_id: int, text: str, reply_markup=None) -> None:
     try:
-        await bot.send_message(user_id, text)
+        await bot.send_message(user_id, text, reply_markup=reply_markup)
     except Exception:  # noqa: BLE001
         logger.warning("Не смог уведомить пользователя %s", user_id)
+
+
+AWAITING_TTL_HOURS = 48
+PUBLISHING_STUCK_MINUTES = 60
+CARD_RESEND_AFTER_MINUTES = 5
+
+
+async def sweep_awaiting(bot: Bot) -> int:
+    """Отменить неподтверждённые джобы, дослать потерянные карточки и разморозить зависшие в publishing."""
+    now = datetime.now(timezone.utc)
+    expired: list[tuple[int, int, str, str | None]] = []
+
+    async with get_session() as session:
+        rows = (
+            await session.execute(
+                select(Job, Connection.user_id)
+                .join(Connection, Connection.id == Job.connection_id)
+                .where(
+                    Job.status == JOB_AWAITING,
+                    Job.awaiting_since < now - timedelta(hours=AWAITING_TTL_HOURS),
+                )
+                .with_for_update(skip_locked=True, of=Job)
+            )
+        ).all()
+        for job, user_id in rows:
+            job.status = JOB_FAILED
+            job.error = f"Не подтверждено за {AWAITING_TTL_HOURS} ч"
+            expired.append((job.card_message_id, user_id, job.title or "video", job.local_path))
+
+        stuck = list(
+            await session.scalars(
+                select(Job)
+                .where(
+                    Job.status == JOB_PUBLISHING,
+                    Job.updated_at < now - timedelta(minutes=PUBLISHING_STUCK_MINUTES),
+                )
+                .with_for_update(skip_locked=True)
+            )
+        )
+        for job in stuck:
+            job.status = JOB_SCHEDULED
+        if stuck:
+            logger.warning("Разморожено зависших в publishing: %d", len(stuck))
+
+    for card_message_id, user_id, title, path in expired:
+        _cleanup(path or "")
+        lang = await user_lang(user_id)
+        if card_message_id:
+            try:
+                await bot.edit_message_reply_markup(
+                    chat_id=user_id, message_id=card_message_id, reply_markup=None
+                )
+            except Exception:  # noqa: BLE001
+                pass
+        await _notify(bot, user_id, t("ttc_expired", lang, title=title,
+                                      hours=AWAITING_TTL_HOURS))
+    if expired:
+        logger.info("Отменено по таймауту подтверждения: %d", len(expired))
+
+    await _resend_lost_cards(bot, now)
+    return len(expired)
+
+
+async def _resend_lost_cards(bot: Bot, now: datetime) -> None:
+    """Дослать карточки подтверждения, которые не дошли до пользователя."""
+    async with get_session() as session:
+        lost = list(
+            await session.scalars(
+                select(Job.id).where(
+                    Job.status == JOB_AWAITING,
+                    Job.card_message_id.is_(None),
+                    Job.awaiting_since
+                    < now - timedelta(minutes=CARD_RESEND_AFTER_MINUTES),
+                )
+            )
+        )
+    if not lost:
+        return
+    from bot.handlers.tiktok_confirm import send_confirm_card
+
+    for job_id in lost:
+        try:
+            await send_confirm_card(bot, job_id)
+        except Exception:  # noqa: BLE001 — одна карточка не должна ронять уборку
+            logger.exception("Не смог дослать карточку подтверждения job=%d", job_id)
+    logger.info("Дослано карточек подтверждения: %d", len(lost))

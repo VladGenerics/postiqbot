@@ -13,15 +13,19 @@ from sqlalchemy import func, or_, select
 
 from bot.config import get_settings
 from bot.db.models import (
+    JOB_AWAITING,
     JOB_DOWNLOADING,
     JOB_FAILED,
     JOB_PENDING,
     JOB_SCHEDULED,
     Connection,
     Job,
+    PublishAccount,
+    SourceChannel,
 )
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
+from bot.services.tiktok_policy import is_direct_post
 from bot.services.ytdlp_cookies import working_copy
 
 logger = logging.getLogger("postiqbot.downloader")
@@ -116,7 +120,10 @@ async def _claim_pending(limit: int) -> list[tuple[int, str, str]]:
             (
                 await session.execute(
                     select(Job.connection_id, func.count(Job.id))
-                    .where(Job.status == JOB_SCHEDULED, Job.local_path.isnot(None))
+                    .where(
+                        Job.status.in_((JOB_SCHEDULED, JOB_AWAITING)),
+                        Job.local_path.isnot(None),
+                    )
                     .group_by(Job.connection_id)
                 )
             ).all()
@@ -144,19 +151,42 @@ async def _claim_pending(limit: int) -> list[tuple[int, str, str]]:
     return claimed
 
 
-async def _finish(job_id: int, *, local_path: str | None, error: str | None) -> None:
+async def needs_confirmation(session, connection_id: int) -> bool:
+    """Нужно ли для этой связки подтверждение пользователя перед публикацией."""
+    if not get_settings().tiktok_direct_post:
+        return False
+    row = (
+        await session.execute(
+            select(PublishAccount.platform, SourceChannel.platform)
+            .join(Connection, Connection.publish_account_id == PublishAccount.id)
+            .join(SourceChannel, SourceChannel.id == Connection.source_channel_id)
+            .where(Connection.id == connection_id)
+        )
+    ).first()
+    if not row:
+        return False
+    return is_direct_post(row[0], row[1])
+
+
+async def _finish(job_id: int, *, local_path: str | None, error: str | None) -> bool:
+    """Записать результат скачивания. Вернуть True, если джоб ждёт подтверждения."""
     async with get_session() as session:
         job = await session.get(Job, job_id)
         if not job:
-            return
+            return False
         if error:
             job.status = JOB_FAILED
             job.error = error[:2000]
-        else:
-            job.status = JOB_SCHEDULED
-            job.local_path = local_path
-            if job.scheduled_at is None:
-                job.scheduled_at = datetime.now(timezone.utc)
+            return False
+        job.local_path = local_path
+        if job.scheduled_at is None:
+            job.scheduled_at = datetime.now(timezone.utc)
+        if await needs_confirmation(session, job.connection_id):
+            job.status = JOB_AWAITING
+            job.awaiting_since = datetime.now(timezone.utc)
+            return True
+        job.status = JOB_SCHEDULED
+        return False
 
 
 async def _notify_fail(bot: Bot, job_id: int, error: str) -> None:
@@ -193,7 +223,7 @@ async def process_pending(bot: Bot | None = None, limit: int = 3) -> int:
     for job_id, url, video_id in await _claim_pending(limit):
         try:
             path = await asyncio.to_thread(download, url, video_id, job_id)
-            await _finish(job_id, local_path=path, error=None)
+            awaiting = await _finish(job_id, local_path=path, error=None)
             ok += 1
             logger.info("Скачано job=%d → %s", job_id, path)
         except Exception as exc:  # noqa: BLE001
@@ -201,4 +231,12 @@ async def process_pending(bot: Bot | None = None, limit: int = 3) -> int:
             await _finish(job_id, local_path=None, error=str(exc))
             if bot is not None:
                 await _notify_fail(bot, job_id, str(exc))
+            continue
+        if awaiting and bot is not None:
+            from bot.handlers.tiktok_confirm import send_confirm_card
+
+            try:
+                await send_confirm_card(bot, job_id)
+            except Exception:  # noqa: BLE001
+                logger.exception("Не смог отправить карточку подтверждения job=%d", job_id)
     return ok
