@@ -1,6 +1,8 @@
 """Подключение YouTube-аккаунта клиента через OAuth."""
 from __future__ import annotations
 
+import logging
+
 from aiogram import F, Router
 from aiogram.types import (
     CallbackQuery,
@@ -24,6 +26,8 @@ from bot.ui import send_with_icon
 from bot.services.youtube_oauth import build_auth_url
 
 router = Router(name="accounts")
+
+logger = logging.getLogger("postiqbot.accounts")
 
 
 async def _account_limit_reached(telegram_id: int) -> int | None:
@@ -55,9 +59,14 @@ async def open_connect_youtube(message: Message, telegram_id: int) -> None:
             return
         client_id = project.client_id
         client_secret = decrypt(project.client_secret_enc)
+        project_id, project_name = project.id, project.name
         state = encode_state(telegram_id, project.id)
 
     auth_url = build_auth_url(client_id, client_secret, settings.oauth_redirect_uri, state)
+    logger.info(
+        "OAuth YouTube: user=%s проект #%d (%s) client_id=%s… redirect_uri=%s",
+        telegram_id, project_id, project_name, client_id[:20], settings.oauth_redirect_uri,
+    )
     kb = InlineKeyboardMarkup(
         inline_keyboard=[[InlineKeyboardButton(text=t("btn_login_google", lang), url=auth_url)]]
     )
