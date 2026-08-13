@@ -4,6 +4,7 @@ from __future__ import annotations
 import glob
 import logging
 import os
+import time
 from datetime import datetime, timezone
 
 import yt_dlp
@@ -56,6 +57,22 @@ def _is_age_restricted(error: str) -> bool:
     return "confirm your age" in e or "inappropriate for some users" in e
 
 
+_TRANSIENT_ERRORS = (
+    "unexpected response from webpage request",
+    "unable to extract universal data",
+    "unable to extract challenge data",
+    "unable to solve js challenge",
+    "unable to extract aweme detail",
+)
+
+_RETRY_DELAYS = (15, 45)
+
+
+def _is_transient(error: str) -> bool:
+    e = error.lower()
+    return any(m in e for m in _TRANSIENT_ERRORS)
+
+
 def download(video_url: str, video_id: str, job_id: int) -> str:
     """Скачать видео, вернуть путь к файлу (синхронно)."""
     dest_dir = get_settings().download_dir
@@ -63,8 +80,23 @@ def download(video_url: str, video_id: str, job_id: int) -> str:
     stem = f"{video_id}_{job_id}"
     opts = _ydl_opts(dest_dir)
     opts["outtmpl"] = os.path.join(dest_dir, f"{stem}.%(ext)s")
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        ydl.download([video_url])
+    attempts = len(_RETRY_DELAYS) + 1
+    for attempt in range(attempts):
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.download([video_url])
+            break
+        except Exception as exc:  # noqa: BLE001
+            if attempt == attempts - 1 or not _is_transient(str(exc)):
+                raise
+            delay = _RETRY_DELAYS[attempt]
+            logger.warning(
+                "job=%d: плавающая ошибка скачивания (%s) — повтор через %d с",
+                job_id,
+                str(exc).splitlines()[0][:150],
+                delay,
+            )
+            time.sleep(delay)
     matches = glob.glob(os.path.join(dest_dir, f"{stem}.*"))
     if not matches:
         raise FileNotFoundError(f"Файл для {stem} не найден после скачивания")
