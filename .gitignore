@@ -12,7 +12,11 @@ cookies.txt
 *cookies*.txt
 
 force_test.py
+force_publish.py
 pg_diag.txt
 pg_setup.txt
+*.save
+
+.env.bak*
 
 .claude/
