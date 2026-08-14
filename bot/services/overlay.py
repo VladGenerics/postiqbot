@@ -20,6 +20,10 @@ _POSITIONS = {
 
 _ANIMATED = {".gif", ".mp4", ".webm", ".mov", ".apng"}
 
+_PROBE_TIMEOUT = 30
+_FRAMES_TIMEOUT = 180
+_ENCODE_TIMEOUT = 900
+
 
 def _trim_transparent(path: str) -> str | None:
     """Обрезать прозрачные поля статичной картинки до видимого содержимого."""
@@ -55,7 +59,7 @@ def _representative_frame(path: str) -> str | None:
         pattern = os.path.join(tmp_dir, "f_%04d.png")
         subprocess.run(
             ["ffmpeg", "-y", "-i", path, "-frames:v", "60", "-vsync", "0", pattern],
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, check=True, timeout=_FRAMES_TIMEOUT,
         )
         frames = sorted(glob.glob(os.path.join(tmp_dir, "f_*.png")))
         best_path, best_score = None, -1
@@ -88,7 +92,7 @@ def _video_width(path: str) -> int:
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
          "-show_entries", "stream=width", "-of", "csv=p=0", path],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, check=True, timeout=_PROBE_TIMEOUT,
     )
     return int(out.stdout.strip().splitlines()[0])
 
@@ -132,7 +136,9 @@ def apply_overlay(
         "-movflags", "+faststart",
         out_path,
     ]
-    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    subprocess.run(
+        cmd, capture_output=True, text=True, check=True, timeout=_ENCODE_TIMEOUT
+    )
     if trimmed:
         try:
             os.remove(trimmed)
@@ -185,7 +191,9 @@ def make_preview(
         "-map", "[v]", "-frames:v", "1", "-q:v", "3",
         out_path,
     ]
-    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    subprocess.run(
+        cmd, capture_output=True, text=True, check=True, timeout=_FRAMES_TIMEOUT
+    )
     if trimmed:
         try:
             os.remove(trimmed)

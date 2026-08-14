@@ -14,6 +14,7 @@ from sqlalchemy.orm import joinedload
 
 from bot.db.models import (
     JOB_AWAITING,
+    JOB_DOWNLOADING,
     JOB_FAILED,
     JOB_PENDING,
     JOB_PUBLISHED,
@@ -384,6 +385,7 @@ async def _notify(bot: Bot, user_id: int, text: str, reply_markup=None) -> None:
 
 AWAITING_TTL_HOURS = 48
 PUBLISHING_STUCK_MINUTES = 60
+DOWNLOADING_STUCK_MINUTES = 60
 CARD_RESEND_AFTER_MINUTES = 5
 
 
@@ -423,6 +425,21 @@ async def sweep_awaiting(bot: Bot) -> int:
             job.status = JOB_SCHEDULED
         if stuck:
             logger.warning("Разморожено зависших в publishing: %d", len(stuck))
+
+        stuck_dl = list(
+            await session.scalars(
+                select(Job)
+                .where(
+                    Job.status == JOB_DOWNLOADING,
+                    Job.updated_at < now - timedelta(minutes=DOWNLOADING_STUCK_MINUTES),
+                )
+                .with_for_update(skip_locked=True)
+            )
+        )
+        for job in stuck_dl:
+            job.status = JOB_PENDING
+        if stuck_dl:
+            logger.warning("Возвращено зависших в downloading: %d", len(stuck_dl))
 
     for card_message_id, user_id, title, path in expired:
         _cleanup(path or "")

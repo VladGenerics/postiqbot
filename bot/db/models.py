@@ -242,6 +242,9 @@ class Job(Base):
     local_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     youtube_video_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    download_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
 
     tt_privacy: Mapped[str | None] = mapped_column(String(32), nullable=True)
     tt_disable_comment: Mapped[bool] = mapped_column(Boolean, default=True)

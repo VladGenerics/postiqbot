@@ -56,13 +56,17 @@ class TitleFlow(StatesGroup):
     waiting = State()
 
 
+_PROBE_TIMEOUT = 30
+_THUMB_TIMEOUT = 60
+
+
 def _video_duration(path: str) -> float:
     """Длительность видео в секундах (0.0, если определить не удалось)."""
     try:
         out = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",
              "-of", "csv=p=0", path],
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, check=True, timeout=_PROBE_TIMEOUT,
         )
         return float(out.stdout.strip().splitlines()[0])
     except Exception:  # noqa: BLE001
@@ -76,7 +80,7 @@ def _thumbnail(video_path: str) -> str | None:
         subprocess.run(
             ["ffmpeg", "-y", "-ss", "1", "-i", video_path, "-frames:v", "1",
              "-vf", "scale=480:-2", dest],
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, check=True, timeout=_THUMB_TIMEOUT,
         )
         return dest if os.path.exists(dest) else None
     except Exception:  # noqa: BLE001

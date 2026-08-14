@@ -5,7 +5,7 @@ import glob
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import yt_dlp
 from aiogram import Bot
@@ -71,10 +71,19 @@ _TRANSIENT_ERRORS = (
 
 _RETRY_DELAYS = (15, 45)
 
+_REQUEUE_DELAYS_MINUTES = (30, 120, 360, 720, 1440, 1440)
+
 
 def _is_transient(error: str) -> bool:
     e = error.lower()
     return any(m in e for m in _TRANSIENT_ERRORS)
+
+
+def _requeue_delay(attempts: int) -> timedelta | None:
+    """Пауза до следующей попытки скачивания. None — попытки кончились."""
+    if attempts >= len(_REQUEUE_DELAYS_MINUTES):
+        return None
+    return timedelta(minutes=_REQUEUE_DELAYS_MINUTES[attempts])
 
 
 def download(video_url: str, video_id: str, job_id: int) -> str:
@@ -168,25 +177,32 @@ async def needs_confirmation(session, connection_id: int) -> bool:
     return is_direct_post(row[0], row[1])
 
 
-async def _finish(job_id: int, *, local_path: str | None, error: str | None) -> bool:
-    """Записать результат скачивания. Вернуть True, если джоб ждёт подтверждения."""
+async def _finish(job_id: int, *, local_path: str | None, error: str | None) -> str:
+    """Записать результат скачивания."""
     async with get_session() as session:
         job = await session.get(Job, job_id)
         if not job:
-            return False
+            return "failed"
         if error:
-            job.status = JOB_FAILED
             job.error = error[:2000]
-            return False
+            delay = _requeue_delay(job.download_attempts)
+            if delay is not None and _is_transient(error):
+                job.download_attempts += 1
+                job.status = JOB_PENDING
+                job.local_path = None
+                job.scheduled_at = datetime.now(timezone.utc) + delay
+                return "requeued"
+            job.status = JOB_FAILED
+            return "failed"
         job.local_path = local_path
         if job.scheduled_at is None:
             job.scheduled_at = datetime.now(timezone.utc)
         if await needs_confirmation(session, job.connection_id):
             job.status = JOB_AWAITING
             job.awaiting_since = datetime.now(timezone.utc)
-            return True
+            return "awaiting"
         job.status = JOB_SCHEDULED
-        return False
+        return "scheduled"
 
 
 async def _notify_fail(bot: Bot, job_id: int, error: str) -> None:
@@ -223,16 +239,22 @@ async def process_pending(bot: Bot | None = None, limit: int = 3) -> int:
     for job_id, url, video_id in await _claim_pending(limit):
         try:
             path = await asyncio.to_thread(download, url, video_id, job_id)
-            awaiting = await _finish(job_id, local_path=path, error=None)
-            ok += 1
-            logger.info("Скачано job=%d → %s", job_id, path)
         except Exception as exc:  # noqa: BLE001
-            logger.exception("Ошибка скачивания job=%d", job_id)
-            await _finish(job_id, local_path=None, error=str(exc))
-            if bot is not None:
-                await _notify_fail(bot, job_id, str(exc))
+            result = await _finish(job_id, local_path=None, error=str(exc))
+            if result == "requeued":
+                logger.warning(
+                    "job=%d: скачивание не удалось (%s) — вернул в очередь",
+                    job_id, str(exc).splitlines()[0][:150],
+                )
+            else:
+                logger.exception("Ошибка скачивания job=%d", job_id)
+                if bot is not None:
+                    await _notify_fail(bot, job_id, str(exc))
             continue
-        if awaiting and bot is not None:
+        result = await _finish(job_id, local_path=path, error=None)
+        ok += 1
+        logger.info("Скачано job=%d → %s", job_id, path)
+        if result == "awaiting" and bot is not None:
             from bot.handlers.tiktok_confirm import send_confirm_card
 
             try:
