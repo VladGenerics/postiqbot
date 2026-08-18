@@ -88,6 +88,19 @@ def _representative_frame(path: str) -> str | None:
             pass
 
 
+def video_duration(path: str) -> float:
+    """Длительность видео в секундах (0.0, если определить не удалось)."""
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", path],
+            capture_output=True, text=True, check=True, timeout=_PROBE_TIMEOUT,
+        )
+        return float(out.stdout.strip().splitlines()[0])
+    except Exception:  # noqa: BLE001 — битый файл/нет ffprobe: считаем «неизвестно»
+        return 0.0
+
+
 def _video_width(path: str) -> int:
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0",

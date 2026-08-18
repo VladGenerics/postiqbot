@@ -13,7 +13,7 @@ USERINFO_URL = "https://open.tiktokapis.com/v2/user/info/"
 
 def get_scopes() -> str:
     if get_settings().tiktok_direct_post:
-        return "user.info.basic,video.publish"
+        return "user.info.basic,video.publish,video.upload"
     return "user.info.basic,video.upload"
 
 

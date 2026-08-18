@@ -1,34 +1,50 @@
 """aiohttp-роут: приём редиректа TikTok после согласия и сохранение аккаунта."""
 from __future__ import annotations
 
+import html
 import logging
 
 from aiogram import Bot
 from aiohttp import web
 from sqlalchemy.dialects.postgresql import insert
 
-from bot.config import get_settings
 from bot.db.models import PublishAccount
 from bot.db.session import get_session
+from bot.i18n import t, user_lang
+from bot.services import login_prompts
 from bot.services.crypto import encrypt
 from bot.services.oauth_state import decode_simple_state
 from bot.services.tiktok_oauth import exchange_code, get_user_info
 from bot.ui import autodelete
+from bot.web.pages import result_page, web_lang
 
 logger = logging.getLogger("postiqbot.tiktok_oauth")
 
+_TXT = {
+    "ru": {
+        "ok": ("TikTok подключён", "Аккаунт «{name}» подключён к боту."),
+        "denied": ("Доступ не выдан", "Ты не подтвердил доступ к аккаунту TikTok."),
+        "bad": ("Некорректный запрос", "Ссылка пришла без кода подтверждения."),
+        "expired": ("Ссылка устарела", "Запроси подключение заново в боте."),
+        "failed": ("Ошибка подключения", "TikTok не выдал доступ. Попробуй ещё раз."),
+    },
+    "en": {
+        "ok": ("TikTok connected", "The account “{name}” is now linked to the bot."),
+        "denied": ("Access not granted", "You didn't approve access to your TikTok account."),
+        "bad": ("Invalid request", "The redirect came back without an authorization code."),
+        "expired": ("Link expired", "Request the connection again in the bot."),
+        "failed": ("Connection failed", "TikTok didn't grant access. Please try again."),
+    },
+}
 
-def _html(message: str) -> web.Response:
-    app = get_settings().site_app_name or "PosttiqBot"
-    body = (
-        "<!doctype html><html lang='ru'><head><meta charset='utf-8'>"
-        "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-        f"<title>{app}</title></head>"
-        "<body style='font-family:sans-serif;max-width:480px;margin:60px auto;"
-        f"text-align:center'>{message}"
-        "<p style='color:#888'>Можно вернуться в Telegram.</p></body></html>"
+
+def _fail(request: web.Request, key: str, detail: str = "") -> web.Response:
+    lang = web_lang(request)
+    title, text = _TXT[lang][key]
+    return result_page(
+        title, text, lang=lang, ok=False, platform="tiktok",
+        detail=html.escape(detail) if detail else "",
     )
-    return web.Response(text=body, content_type="text/html")
 
 
 async def _save_account(
@@ -57,17 +73,17 @@ async def tiktok_callback(request: web.Request) -> web.Response:
     bot: Bot = request.app["bot"]
 
     if request.query.get("error"):
-        return _html(f"<h2>❌ Доступ не выдан</h2><p>{request.query.get('error_description', '')}</p>")
+        return _fail(request, "denied", request.query.get("error_description", ""))
 
     code = request.query.get("code")
     state = request.query.get("state")
     if not code or not state:
-        return _html("<h2>❌ Некорректный запрос</h2>")
+        return _fail(request, "bad")
 
     try:
         telegram_id = decode_simple_state(state)
     except Exception:
-        return _html("<h2>❌ Ссылка устарела</h2><p>Запроси подключение заново в боте.</p>")
+        return _fail(request, "expired")
 
     try:
         tokens = await exchange_code(code)
@@ -81,18 +97,23 @@ async def tiktok_callback(request: web.Request) -> web.Response:
             name = "TikTok"
     except Exception as exc:  # noqa: BLE001
         logger.exception("TikTok OAuth failed")
-        return _html(f"<h2>❌ Ошибка подключения</h2><p>{exc}</p>")
+        return _fail(request, "failed", str(exc))
 
     await _save_account(telegram_id, open_id, name, refresh_token)
 
+    await login_prompts.clear(bot, telegram_id, "tiktok")
     try:
+        lang = await user_lang(telegram_id)
         msg = await bot.send_message(
             telegram_id,
-            f"✅ TikTok <b>{name}</b> подключён!\n"
-            "Теперь можно выбрать его как канал публикации при создании связки.",
+            t("acc_connected_tiktok", lang, title=html.escape(name)),
         )
-        autodelete(msg)
+        autodelete(msg, 20.0)
     except Exception:  # noqa: BLE001
         logger.warning("Не смог уведомить пользователя %s", telegram_id)
 
-    return _html(f"<h2>✅ TikTok «{name}» подключён</h2>")
+    lang = web_lang(request)
+    title, text = _TXT[lang]["ok"]
+    return result_page(
+        title, text.format(name=html.escape(name)), lang=lang, platform="tiktok"
+    )

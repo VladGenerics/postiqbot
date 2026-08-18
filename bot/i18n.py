@@ -159,11 +159,11 @@ T: dict[str, dict[str, str]] = {
     "publish_failed_auth": {
         "ru": (
             "❌ Не удалось опубликовать «{title}»: возможно, отозван доступ к каналу.\n"
-            "Переподключи аккаунт: «🔗 Подключить аккаунт»."
+            "Переподключи аккаунт: «➕ Новое подключение» → «🔓 Войти через …»."
         ),
         "en": (
             "❌ Couldn't publish «{title}»: channel access may have been revoked.\n"
-            "Reconnect the account: «🔗 Connect account»."
+            "Reconnect the account: «➕ New connection» → «🔓 Sign in with …»."
         ),
     },
     "publish_failed": {
@@ -264,14 +264,36 @@ T: dict[str, dict[str, str]] = {
     },
     "btn_login_google": {"ru": "🔓 Войти через Google", "en": "🔓 Sign in with Google"},
     "btn_login_tiktok": {"ru": "🔓 Войти через TikTok", "en": "🔓 Sign in with TikTok"},
+    "btn_signin_youtube": {"ru": "🔓 Войти через YouTube", "en": "🔓 Sign in with YouTube"},
+    "btn_signin_tiktok": {"ru": "🔓 Войти через TikTok", "en": "🔓 Sign in with TikTok"},
+    "acc_connected_youtube": {
+        "ru": (
+            "✅ Канал <b>{title}</b> подключён!\n"
+            "Теперь добавь источник, за которым следить."
+        ),
+        "en": (
+            "✅ Channel <b>{title}</b> connected!\n"
+            "Now add a source channel to watch."
+        ),
+    },
+    "acc_connected_tiktok": {
+        "ru": (
+            "✅ TikTok <b>{title}</b> подключён!\n"
+            "Теперь можно выбрать его как канал публикации при создании связки."
+        ),
+        "en": (
+            "✅ TikTok <b>{title}</b> connected!\n"
+            "You can now pick it as the publishing channel for a connection."
+        ),
+    },
     "guide": {
         "ru": (
             "📖 <b>Как пользоваться PosttiqBot</b>\n\n"
             "Бот автоматически забирает новые видео с канала-источника и публикует их "
             "на твой канал (YouTube или TikTok) по расписанию.\n\n"
             "<b>1. Подключи свой канал</b>\n"
-            "«➕ Подключения» → «➕ Новое подключение» → «🔗 Подключить аккаунт» → "
-            "YouTube или TikTok (вход через официальный OAuth).\n\n"
+            "«➕ Подключения» → «➕ Новое подключение» → «🔓 Войти через YouTube» "
+            "или «🔓 Войти через TikTok» (вход через официальный OAuth).\n\n"
             "<b>2. Добавь источник</b>\n"
             "«➕ Новое подключение» → «➕ Добавить источник» → пришли ссылку на канал "
             "(YouTube @handle/ссылку или ссылку на профиль TikTok).\n\n"
@@ -290,8 +312,8 @@ T: dict[str, dict[str, str]] = {
             "The bot automatically takes new videos from a source channel and publishes "
             "them to your channel (YouTube or TikTok) on schedule.\n\n"
             "<b>1. Connect your channel</b>\n"
-            "«➕ Connections» → «➕ New connection» → «🔗 Connect account» → "
-            "YouTube or TikTok (official OAuth sign-in).\n\n"
+            "«➕ Connections» → «➕ New connection» → «🔓 Sign in with YouTube» "
+            "or «🔓 Sign in with TikTok» (official OAuth sign-in).\n\n"
             "<b>2. Add a source</b>\n"
             "«➕ New connection» → «➕ Add source» → send a channel link "
             "(YouTube @handle/link or a TikTok profile link).\n\n"
@@ -366,6 +388,9 @@ T: dict[str, dict[str, str]] = {
     "c_btn_visibility": {"ru": "👁 Доступ: {priv}", "en": "👁 Visibility: {priv}"},
     "c_btn_schedule": {"ru": "⏰ Расписание: {sched}", "en": "⏰ Schedule: {sched}"},
     "c_btn_overlay": {"ru": "🖼 Оверлей: {ovl}", "en": "🖼 Overlay: {ovl}"},
+    "c_btn_tiktok": {"ru": "🎵 TikTok: {mode}", "en": "🎵 TikTok: {mode}"},
+    "c_tt_auto": {"ru": "автопубликация", "en": "auto-posting"},
+    "c_tt_card": {"ru": "с подтверждением", "en": "confirm each"},
     "c_btn_delete": {"ru": "🗑 Удалить", "en": "🗑 Delete"},
     "c_btn_to_list": {"ru": "« К списку", "en": "« Back to list"},
     "c_btn_back": {"ru": "« Назад", "en": "« Back"},
@@ -724,6 +749,28 @@ T: dict[str, dict[str, str]] = {
             "Try again in a few hours."
         ),
     },
+    "pub_tt_retry": {
+        "ru": (
+            "⏳ TikTok сейчас не принимает «{title}» — сработал лимит аккаунта.\n"
+            "Видео сохранено, попробую опубликовать снова через {hours} ч."
+        ),
+        "en": (
+            "⏳ TikTok won't take «{title}» right now — the account hit a limit.\n"
+            "The video is saved, I'll try publishing again in {hours}h."
+        ),
+    },
+    "pub_tt_privacy_gone": {
+        "ru": (
+            "⚠️ Не удалось опубликовать «{title}»: выбранная приватность больше "
+            "недоступна аккаунту (например, профиль стал приватным).\n"
+            "Открой настройки TikTok у связки и выбери, кто увидит видео."
+        ),
+        "en": (
+            "⚠️ Couldn't publish «{title}»: the chosen visibility is no longer "
+            "available for the account (e.g. the profile went private).\n"
+            "Open the connection's TikTok settings and pick who can see videos."
+        ),
+    },
     "ttc_header": {
         "ru": "🎵 <b>Новое видео готово к публикации в TikTok</b>",
         "en": "🎵 <b>New video ready to post on TikTok</b>",
@@ -794,6 +841,10 @@ T: dict[str, dict[str, str]] = {
     "ttc_btn_title": {"ru": "✏️ Изменить подпись", "en": "✏️ Edit caption"},
     "ttc_btn_go": {"ru": "✅ Опубликовать", "en": "✅ Post it"},
     "ttc_btn_no": {"ru": "❌ Отменить", "en": "❌ Cancel"},
+    "ttc_btn_auto": {
+        "ru": "⚡ Больше не спрашивать — настроить автопубликацию",
+        "en": "⚡ Stop asking — set up auto-posting",
+    },
     "ttc_ask_title": {
         "ru": "Пришли новую подпись к видео (до 150 символов).",
         "en": "Send the new caption for the video (up to 150 characters).",
@@ -851,6 +902,109 @@ T: dict[str, dict[str, str]] = {
     "ttc_err_creator": {
         "ru": "TikTok не отвечает. Попробуй нажать ещё раз через минуту.",
         "en": "TikTok isn't responding. Try tapping again in a minute.",
+    },
+    "tts_header": {
+        "ru": "🎵 <b>Автопубликация в TikTok</b>",
+        "en": "🎵 <b>TikTok auto-posting</b>",
+    },
+    "tts_mode_auto": {
+        "ru": "Режим: <b>автоматически</b> — видео выходят сами, без вопросов.",
+        "en": "Mode: <b>automatic</b> — videos go out on their own, no questions.",
+    },
+    "tts_mode_card": {
+        "ru": "Режим: <b>с подтверждением</b> — на каждое видео приходит карточка.",
+        "en": "Mode: <b>confirm each</b> — every video arrives as a card to approve.",
+    },
+    "tts_privacy_gone": {
+        "ru": (
+            "👁 <b>Выбери заново, кто увидит видео</b>: прежний вариант аккаунту "
+            "больше не доступен (например, профиль стал приватным)."
+        ),
+        "en": (
+            "👁 <b>Pick who can see videos again</b>: the previous option is no "
+            "longer available for the account (e.g. the profile went private)."
+        ),
+    },
+    "tts_overlay_ignored": {
+        "ru": (
+            "⚠️ Оверлей не применяется: TikTok запрещает свои наложения на "
+            "публикуемых видео."
+        ),
+        "en": (
+            "⚠️ The overlay is skipped: TikTok forbids third-party overlays on "
+            "posted videos."
+        ),
+    },
+    "tts_consent": {
+        "ru": (
+            "Нажимая «Включить автопубликацию», ты разрешаешь боту публиковать "
+            "видео этой связки в твой аккаунт TikTok с выбранными выше настройками "
+            "— без отдельного подтверждения на каждое видео."
+        ),
+        "en": (
+            "By tapping “Enable auto-posting” you allow the bot to publish this "
+            "connection's videos to your TikTok account with the settings above "
+            "— without confirming each video separately."
+        ),
+    },
+    "tts_consent_given": {
+        "ru": (
+            "Согласие на автопубликацию выдано. Изменения настроек применяются "
+            "к следующим видео; отозвать — кнопкой ниже."
+        ),
+        "en": (
+            "Auto-posting consent is on. Setting changes apply to upcoming videos; "
+            "revoke it with the button below."
+        ),
+    },
+    "tts_btn_on": {"ru": "⚡ Включить автопубликацию", "en": "⚡ Enable auto-posting"},
+    "tts_btn_off": {
+        "ru": "🛑 Выключить (вернуть подтверждение)",
+        "en": "🛑 Turn off (confirm each again)",
+    },
+    "tts_on": {
+        "ru": (
+            "⚡ Автопубликация включена. Новые видео этой связки будут выходить "
+            "в TikTok по расписанию, без карточек."
+        ),
+        "en": (
+            "⚡ Auto-posting enabled. New videos from this connection will go to "
+            "TikTok on schedule, with no cards."
+        ),
+    },
+    "tts_on_released": {
+        "ru": (
+            "⚡ Автопубликация включена. Видео, ожидавших подтверждения: {n} — "
+            "они уйдут в TikTok по расписанию связки."
+        ),
+        "en": (
+            "⚡ Auto-posting enabled. Videos that were awaiting confirmation: {n} — "
+            "they'll go to TikTok on the connection schedule."
+        ),
+    },
+    "tts_off": {
+        "ru": (
+            "🛑 Автопубликация выключена. На каждое новое видео снова придёт "
+            "карточка подтверждения."
+        ),
+        "en": (
+            "🛑 Auto-posting disabled. Every new video will come back as a "
+            "confirmation card."
+        ),
+    },
+    "tts_off_held": {
+        "ru": (
+            "🛑 Автопубликация выключена. Видео, уже готовых к выходу: {n} — "
+            "они ждут подтверждения, карточки пришлю следом."
+        ),
+        "en": (
+            "🛑 Auto-posting disabled. Videos already queued to go live: {n} — "
+            "they now await confirmation, cards coming next."
+        ),
+    },
+    "tts_unavailable": {
+        "ru": "У этой связки нет автопубликации в TikTok.",
+        "en": "This connection has no TikTok auto-posting.",
     },
     "pub_tt_reconnect": {
         "ru": (

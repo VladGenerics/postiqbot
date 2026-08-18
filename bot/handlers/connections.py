@@ -23,6 +23,7 @@ from sqlalchemy.orm import joinedload
 from bot.config import get_settings
 from bot.db.models import Connection, Folder
 from bot.db.session import get_session
+from bot.handlers.tiktok_settings import mode_label, tt_settings_available
 from bot.i18n import t, user_lang
 from bot.services.overlay import make_preview
 from bot.services.tiktok_policy import overlay_allowed
@@ -218,31 +219,37 @@ def _card_markup(conn: Connection, lang: str) -> InlineKeyboardMarkup:
     )
     back_data = f"fld:{conn.folder_id}" if conn.folder_id else "nav:mylist"
     folder_label = conn.folder.name if conn.folder else t("f_none", lang)
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [toggle],
-            [InlineKeyboardButton(
-                text=t("c_btn_visibility", lang, priv=_priv_label(conn.privacy, lang)),
-                callback_data=f"conn_priv:{conn.id}",
-            )],
-            [InlineKeyboardButton(
-                text=t("c_btn_schedule", lang, sched=_sched_desc(conn, lang)),
-                callback_data=f"conn_sched:{conn.id}",
-            )],
-            [InlineKeyboardButton(
-                text=t("c_btn_overlay", lang, ovl=_ovl_desc(conn, lang)),
-                callback_data=f"conn_ovl:{conn.id}",
-            )],
-            [InlineKeyboardButton(text=t("c_btn_rename", lang), callback_data=f"conn_ren:{conn.id}"),
-             InlineKeyboardButton(
-                 text=t("f_btn_folder", lang, folder=folder_label),
-                 callback_data=f"conn_mv:{conn.id}",
-             )],
-            [InlineKeyboardButton(text=t("c_btn_backfill", lang), callback_data=f"conn_bf:{conn.id}")],
-            [InlineKeyboardButton(text=t("c_btn_delete", lang), callback_data=f"conn_del:{conn.id}")],
-            [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=back_data)],
-        ]
-    )
+    rows = [
+        [toggle],
+        [InlineKeyboardButton(
+            text=t("c_btn_visibility", lang, priv=_priv_label(conn.privacy, lang)),
+            callback_data=f"conn_priv:{conn.id}",
+        )],
+        [InlineKeyboardButton(
+            text=t("c_btn_schedule", lang, sched=_sched_desc(conn, lang)),
+            callback_data=f"conn_sched:{conn.id}",
+        )],
+    ]
+    if tt_settings_available(conn):
+        rows.append([InlineKeyboardButton(
+            text=t("c_btn_tiktok", lang, mode=mode_label(conn, lang)),
+            callback_data=f"tts:{conn.id}",
+        )])
+    rows += [
+        [InlineKeyboardButton(
+            text=t("c_btn_overlay", lang, ovl=_ovl_desc(conn, lang)),
+            callback_data=f"conn_ovl:{conn.id}",
+        )],
+        [InlineKeyboardButton(text=t("c_btn_rename", lang), callback_data=f"conn_ren:{conn.id}"),
+         InlineKeyboardButton(
+             text=t("f_btn_folder", lang, folder=folder_label),
+             callback_data=f"conn_mv:{conn.id}",
+         )],
+        [InlineKeyboardButton(text=t("c_btn_backfill", lang), callback_data=f"conn_bf:{conn.id}")],
+        [InlineKeyboardButton(text=t("c_btn_delete", lang), callback_data=f"conn_del:{conn.id}")],
+        [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=back_data)],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 async def open_connections(message: Message, user_id: int) -> None:

@@ -17,6 +17,7 @@ from bot.db.models import PublishAccount
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.i18n import t, user_lang
+from bot.services import login_prompts
 from bot.services.crypto import decrypt
 from bot.services.oauth_state import encode_simple_state, encode_state
 from bot.services.projects import ensure_shared_project, pick_project
@@ -28,6 +29,19 @@ from bot.services.youtube_oauth import build_auth_url
 router = Router(name="accounts")
 
 logger = logging.getLogger("postiqbot.accounts")
+
+
+async def _send_login_prompt(
+    message: Message, telegram_id: int, platform: str, text: str, button: str, url: str
+) -> None:
+    """Отправить приглашение «Войти через …» и запомнить его."""
+    prompt = await message.answer(
+        text,
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text=button, url=url)]]
+        ),
+    )
+    await login_prompts.remember(message.bot, telegram_id, platform, prompt.message_id)
 
 
 async def _account_limit_reached(telegram_id: int) -> int | None:
@@ -67,10 +81,10 @@ async def open_connect_youtube(message: Message, telegram_id: int) -> None:
         "OAuth YouTube: user=%s проект #%d (%s) client_id=%s… redirect_uri=%s",
         telegram_id, project_id, project_name, client_id[:20], settings.oauth_redirect_uri,
     )
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=t("btn_login_google", lang), url=auth_url)]]
+    await _send_login_prompt(
+        message, telegram_id, "youtube",
+        t("oauth_youtube", lang), t("btn_login_google", lang), auth_url,
     )
-    await message.answer(t("oauth_youtube", lang), reply_markup=kb)
 
 
 async def open_connect_tiktok(message: Message, telegram_id: int) -> None:
@@ -85,18 +99,18 @@ async def open_connect_tiktok(message: Message, telegram_id: int) -> None:
         await message.answer(t("limit_accounts", lang, limit=limit))
         return
     auth_url = tiktok_auth_url(encode_simple_state(telegram_id))
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=t("btn_login_tiktok", lang), url=auth_url)]]
+    await _send_login_prompt(
+        message, telegram_id, "tiktok",
+        t("oauth_tiktok", lang), t("btn_login_tiktok", lang), auth_url,
     )
-    await message.answer(t("oauth_tiktok", lang), reply_markup=kb)
 
 
 async def open_connect_menu(message: Message, telegram_id: int) -> None:
     """Компактное подключение: выбор платформы инлайн-кнопками."""
     lang = await user_lang(telegram_id)
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t("youtube", lang), callback_data="connect_youtube")],
-        [InlineKeyboardButton(text=t("tiktok", lang), callback_data="connect_tiktok")],
+        [InlineKeyboardButton(text=t("btn_signin_youtube", lang), callback_data="connect_youtube")],
+        [InlineKeyboardButton(text=t("btn_signin_tiktok", lang), callback_data="connect_tiktok")],
     ])
     await send_with_icon(message, "connect", t("choose_platform", lang), reply_markup=kb, lang=lang)
 

@@ -232,6 +232,28 @@ header.site{background:var(--bg)}
 .heroart img,figure.shot img,.gallery img{backdrop-filter:none;-webkit-backdrop-filter:none}
 .btn.ghost{background:var(--panel-hi)}
 .plan.hot,.band{background:var(--panel-hi)}}
+/* Страница результата OAuth (/oauth/callback, /tiktok/callback): одна карточка
+   по центру. Пользователь попадает сюда из браузера сразу после согласия — тут
+   не нужны ни hero, ни сетки, только «получилось / не получилось» и путь назад. */
+.result{max-width:560px;margin:min(8vh,72px) auto 0;text-align:center;
+background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+border:1px solid var(--line);border-radius:var(--r);padding:clamp(26px,5vw,40px);
+box-shadow:var(--edge);animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
+.result .seal{position:relative;width:72px;height:72px;margin:0 auto 22px;
+border-radius:20px;display:flex;align-items:center;justify-content:center;
+background:rgba(201,59,240,.13);color:var(--acc-lt);box-shadow:inset 0 0 0 1px rgba(201,59,240,.28)}
+.result .seal .badge{position:absolute;right:-9px;bottom:-9px;width:30px;height:30px;
+border-radius:999px;display:flex;align-items:center;justify-content:center;
+background:var(--bg-soft);color:var(--acc-lt);box-shadow:inset 0 0 0 1px var(--line-hi)}
+.result.bad .seal{background:rgba(255,255,255,.06);color:var(--fg);
+box-shadow:inset 0 0 0 1px var(--line-hi)}
+.result h1{font-size:clamp(23px,3.2vw,31px);margin:0 0 12px}
+.result p{color:var(--muted);margin:0}
+.result .why{font-family:'Geist Mono',ui-monospace,monospace;font-size:13px;
+color:var(--muted);text-align:left;word-break:break-word;background:rgba(255,255,255,.04);
+border:1px solid var(--line);border-radius:var(--r-chip);padding:11px 14px;margin:18px 0 0}
+.result .actions{justify-content:center;margin-top:26px}
+.result .note{margin-top:18px;font-size:14px}
 """
 
 _CSS = _CSS_BASE + _CSS_SHELL + _CSS_UI
@@ -321,6 +343,57 @@ def _contact_sentence() -> str:
         f"<a href='{BOT_URL}'>@Posttiq_bot</a>"
         + (f" or {extra}" if extra else "")
     )
+
+
+_RESULT_TXT: dict[str, dict[str, str]] = {
+    "ru": {
+        "back": "Вернуться в Telegram",
+        "note": "Эту страницу можно закрыть — дальше всё в боте.",
+    },
+    "en": {
+        "back": "Back to Telegram",
+        "note": "You can close this page — the rest happens in the bot.",
+    },
+}
+
+_RESULT_ICONS = {"tiktok": "tiktok-logo", "youtube": "youtube-logo"}
+
+
+def web_lang(request: web.Request) -> str:
+    """ru/en по Accept-Language браузера (по умолчанию — язык сайта, en)."""
+    accept = request.headers.get("Accept-Language", "")
+    return "ru" if accept[:2].lower() == "ru" else "en"
+
+
+def result_page(
+    title: str,
+    text: str,
+    *,
+    lang: str = "en",
+    ok: bool = True,
+    platform: str | None = None,
+    detail: str = "",
+) -> web.Response:
+    """Результат подключения аккаунта — в оформлении сайта."""
+    txt = _RESULT_TXT.get(lang, _RESULT_TXT["en"])
+    if ok:
+        seal = (
+            f"{icon(_RESULT_ICONS.get(platform or '', 'link-simple'), 34)}"
+            f"<span class='badge'>{icon('check-circle', 19)}</span>"
+        )
+    else:
+        seal = icon("warning-circle", 34)
+    card = (
+        f"<section class='result{'' if ok else ' bad'}'>"
+        f"<div class='seal'>{seal}</div>"
+        f"<h1>{title}</h1><p>{text}</p>"
+        + (f"<p class='why'>{detail}</p>" if detail else "")
+        + f"<div class='actions'><a class='btn' href='{BOT_URL}'>"
+        f"{icon('telegram-logo', 18)}{txt['back']}</a></div>"
+        f"<p class='note muted'>{txt['note']}</p>"
+        "</section>"
+    )
+    return _page(f"{_app()} — {title}", title, "", hero=card)
 
 
 async def logo(_: web.Request) -> web.Response:

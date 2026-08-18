@@ -99,6 +99,7 @@ async def direct_post(
     disable_stitch: bool = True,
     brand_content_toggle: bool = False,
     brand_organic_toggle: bool = False,
+    creator_info: dict | None = None,
 ) -> str:
     """Прямая публикация в TikTok (Direct Post, scope video.publish)."""
     if not privacy:
@@ -112,12 +113,14 @@ async def direct_post(
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=180) as client:
-        ci = await client.post(CREATOR_INFO_URL, headers=headers)
-        ci_payload = ci.json()
-        options = (ci_payload.get("data") or {}).get("privacy_level_options") or []
+        options = list((creator_info or {}).get("privacy_level_options") or [])
         if not options:
-            _raise_for_error(ci_payload, "creator_info")
-            raise ValueError(f"TikTok creator_info error: {ci_payload}")
+            ci = await client.post(CREATOR_INFO_URL, headers=headers)
+            ci_payload = ci.json()
+            options = (ci_payload.get("data") or {}).get("privacy_level_options") or []
+            if not options:
+                _raise_for_error(ci_payload, "creator_info")
+                raise ValueError(f"TikTok creator_info error: {ci_payload}")
         if privacy not in options:
             raise ValueError(
                 f"privacy_level_option_mismatch: {privacy} недоступен "

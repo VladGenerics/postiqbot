@@ -32,6 +32,7 @@ from bot.db.models import (
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.services import tiktok_api, tiktok_tokens
+from bot.services.overlay import video_duration
 from bot.services.scheduling import compute_scheduled_at
 
 logger = logging.getLogger("postiqbot.tiktok_confirm")
@@ -56,21 +57,7 @@ class TitleFlow(StatesGroup):
     waiting = State()
 
 
-_PROBE_TIMEOUT = 30
 _THUMB_TIMEOUT = 60
-
-
-def _video_duration(path: str) -> float:
-    """Длительность видео в секундах (0.0, если определить не удалось)."""
-    try:
-        out = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-             "-of", "csv=p=0", path],
-            capture_output=True, text=True, check=True, timeout=_PROBE_TIMEOUT,
-        )
-        return float(out.stdout.strip().splitlines()[0])
-    except Exception:  # noqa: BLE001
-        return 0.0
 
 
 def _thumbnail(video_path: str) -> str | None:
@@ -162,6 +149,9 @@ def _card_markup(job: Job, info: dict, lang: str) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text=t("ttc_btn_go", lang), callback_data=f"ttc_go:{job.id}"),
         InlineKeyboardButton(text=t("ttc_btn_no", lang), callback_data=f"ttc_no:{job.id}"),
     ])
+    rows.append([InlineKeyboardButton(
+        text=t("ttc_btn_auto", lang), callback_data=f"tts:{job.connection_id}:new"
+    )])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -216,7 +206,7 @@ async def send_confirm_card(bot: Bot, job_id: int) -> None:
         return
 
     max_sec = info.get("max_video_post_duration_sec") or 0
-    duration = await asyncio.to_thread(_video_duration, job.local_path or "")
+    duration = await asyncio.to_thread(video_duration, job.local_path or "")
     if max_sec and duration > max_sec:
         await _fail(job_id, f"Видео {int(duration)}с длиннее лимита TikTok {max_sec}с")
         _cleanup(job.local_path)

@@ -25,7 +25,7 @@ from bot.db.models import (
 )
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
-from bot.services.tiktok_policy import is_direct_post
+from bot.services.tiktok_policy import POST_FIELDS, is_auto_post, needs_confirm_card
 from bot.services.ytdlp_cookies import working_copy
 
 logger = logging.getLogger("postiqbot.downloader")
@@ -162,19 +162,47 @@ async def _claim_pending(limit: int) -> list[tuple[int, str, str]]:
 
 async def needs_confirmation(session, connection_id: int) -> bool:
     """Нужно ли для этой связки подтверждение пользователя перед публикацией."""
+    card, _ = await tiktok_plan(session, connection_id)
+    return card
+
+
+_TT_FIELDS = POST_FIELDS
+
+
+async def tiktok_plan(session, connection_id: int) -> tuple[bool, dict]:
+    """Что делать с видео этой связки после скачивания."""
     if not get_settings().tiktok_direct_post:
-        return False
+        return False, {}
     row = (
         await session.execute(
-            select(PublishAccount.platform, SourceChannel.platform)
+            select(
+                PublishAccount.platform,
+                SourceChannel.platform,
+                Connection.tt_auto,
+                Connection.tt_privacy,
+                Connection.tt_consent_at,
+                Connection.tt_disable_comment,
+                Connection.tt_disable_duet,
+                Connection.tt_disable_stitch,
+                Connection.tt_brand_organic,
+                Connection.tt_brand_content,
+            )
             .join(Connection, Connection.publish_account_id == PublishAccount.id)
             .join(SourceChannel, SourceChannel.id == Connection.source_channel_id)
             .where(Connection.id == connection_id)
         )
     ).first()
     if not row:
-        return False
-    return is_direct_post(row[0], row[1])
+        return False, {}
+    dest, source = row[0], row[1]
+    consent = dict(
+        tt_auto=row.tt_auto, tt_privacy=row.tt_privacy, tt_consent_at=row.tt_consent_at
+    )
+    if needs_confirm_card(dest, source, **consent):
+        return True, {}
+    if not is_auto_post(dest, source, **consent):
+        return False, {}
+    return False, {f: getattr(row, f) for f in _TT_FIELDS}
 
 
 async def _finish(job_id: int, *, local_path: str | None, error: str | None) -> str:
@@ -197,10 +225,13 @@ async def _finish(job_id: int, *, local_path: str | None, error: str | None) -> 
         job.local_path = local_path
         if job.scheduled_at is None:
             job.scheduled_at = datetime.now(timezone.utc)
-        if await needs_confirmation(session, job.connection_id):
+        card, tt_fields = await tiktok_plan(session, job.connection_id)
+        if card:
             job.status = JOB_AWAITING
             job.awaiting_since = datetime.now(timezone.utc)
             return "awaiting"
+        for field, value in tt_fields.items():
+            setattr(job, field, value)
         job.status = JOB_SCHEDULED
         return "scheduled"
 

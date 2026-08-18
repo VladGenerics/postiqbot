@@ -23,7 +23,6 @@ from bot.db.models import (
     Connection,
     Job,
     PublishAccount,
-    SourceChannel,
     User,
 )
 from bot.config import UNLIMITED, get_settings
@@ -31,9 +30,9 @@ from bot.db.session import get_session
 from bot.i18n import t, user_lang
 from bot.services.crypto import decrypt
 from bot.services import tiktok_api, tiktok_tokens
-from bot.services.overlay import apply_overlay
+from bot.services.overlay import apply_overlay, video_duration
 from bot.services.subscription import inc_videos_used
-from bot.services.tiktok_policy import is_direct_post
+from bot.services.tiktok_policy import POST_FIELDS, effective_toggles, is_direct_post
 from bot.services.youtube_api import upload_video
 from bot.services.youtube_oauth import credentials_from_refresh_token
 
@@ -56,6 +55,7 @@ class _Task:
     overlay_position: str | None = None
     overlay_scale: int = 30
     account_id: int = 0
+    connection_id: int = 0
     source_platform: str = ""
     tt_privacy: str | None = None
     tt_disable_comment: bool = True
@@ -63,6 +63,7 @@ class _Task:
     tt_disable_stitch: bool = True
     tt_brand_organic: bool = False
     tt_brand_content: bool = False
+    publish_attempts: int = 0
 
     @property
     def tt_direct(self) -> bool:
@@ -72,6 +73,12 @@ class _Task:
 
 def _start_of_day(now: datetime) -> datetime:
     return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _tt_settings(job: Job, conn: Connection) -> dict:
+    """Настройки TikTok-поста для этого джоба."""
+    source = job if job.tt_privacy else conn
+    return {f: getattr(source, f) for f in POST_FIELDS}
 
 
 async def _claim_due(limit: int) -> list[_Task]:
@@ -205,13 +212,10 @@ async def _claim_due(limit: int) -> list[_Task]:
                 tasks.append(_Task(
                     platform="tiktok",
                     account_id=acc.id,
+                    connection_id=conn.id,
                     source_platform=conn.source_channel.platform,
-                    tt_privacy=job.tt_privacy,
-                    tt_disable_comment=job.tt_disable_comment,
-                    tt_disable_duet=job.tt_disable_duet,
-                    tt_disable_stitch=job.tt_disable_stitch,
-                    tt_brand_organic=job.tt_brand_organic,
-                    tt_brand_content=job.tt_brand_content,
+                    publish_attempts=job.publish_attempts,
+                    **_tt_settings(job, conn),
                     **common,
                 ))
             else:
@@ -247,6 +251,57 @@ async def _requeue(job_id: int) -> None:
             job.local_path = None
 
 
+_RATE_LIMITED = (
+    "spam_risk_too_many_posts",
+    "spam_risk_too_many_pending_share",
+    "rate_limit_exceeded",
+)
+
+_PUBLISH_RETRY_MINUTES = (60, 180, 360, 720)
+
+
+def _publish_retry_delay(attempts: int, error: str) -> timedelta | None:
+    """Пауза до повторной попытки публикации."""
+    if not any(m in error for m in _RATE_LIMITED):
+        return None
+    if attempts >= len(_PUBLISH_RETRY_MINUTES):
+        return None
+    return timedelta(minutes=_PUBLISH_RETRY_MINUTES[attempts])
+
+
+async def _reschedule(job_id: int, delay: timedelta, error: str) -> None:
+    """Вернуть джоб в очередь публикации через delay, сохранив скачанный файл."""
+    async with get_session() as session:
+        job = await session.get(Job, job_id)
+        if not job:
+            return
+        job.status = JOB_SCHEDULED
+        job.scheduled_at = datetime.now(timezone.utc) + delay
+        job.publish_attempts += 1
+        job.error = error[:2000]
+
+
+def _fail_msg(task: _Task, exc: Exception, lang: str) -> tuple[str, InlineKeyboardMarkup | None]:
+    """Текст (и кнопка) для окончательной ошибки публикации."""
+    if isinstance(exc, tiktok_api.TikTokScopeError):
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text=t("btn_reconnect_tiktok", lang), callback_data="connect_tiktok"
+            )
+        ]])
+        return t("pub_tt_reconnect", lang, title=task.title), kb
+    if isinstance(exc, _VideoTooLong):
+        return t("ttc_too_long", lang, title=task.title,
+                 duration=exc.duration, limit=exc.limit), None
+    if isinstance(exc, _PrivacyUnavailable):
+        return t("pub_tt_privacy_gone", lang, title=task.title), None
+    if "spam_risk_too_many_pending_share" in str(exc):
+        return t("pub_tt_too_many", lang, title=task.title), None
+    if "spam_risk_too_many_posts" in str(exc) or "rate_limit_exceeded" in str(exc):
+        return t("pub_tt_rate_limit", lang, title=task.title), None
+    return t("pub_fail", lang, title=task.title, error=str(exc)), None
+
+
 def _yt_upload(task: _Task, path: str) -> str:
     creds = credentials_from_refresh_token(
         task.refresh_token, task.client_id, task.client_secret
@@ -256,6 +311,59 @@ def _yt_upload(task: _Task, path: str) -> str:
     )
 
 
+class _VideoTooLong(RuntimeError):
+    """Видео длиннее лимита аккаунта: TikTok отклонит его только ПОСЛЕ заливки байтов."""
+
+    def __init__(self, duration: float, limit: int) -> None:
+        super().__init__(f"video too long: {duration:.0f}s > {limit}s")
+        self.duration = int(duration)
+        self.limit = limit
+
+
+class _PrivacyUnavailable(RuntimeError):
+    """Сохранённая приватность больше не доступна аккаунту (профиль стал приватным."""
+
+    def __init__(self, privacy: str, options: list[str]) -> None:
+        super().__init__(
+            f"privacy_level_option_mismatch: {privacy or '—'} недоступен "
+            f"(разрешено: {', '.join(options) or '—'})"
+        )
+        self.privacy = privacy
+
+
+async def _tt_direct(task: _Task, path: str, access: str) -> str:
+    """Direct Post + проверки, которые в режиме карточки делал пользователь."""
+    info = await tiktok_api.get_creator_info(access)
+    limit = int(info.get("max_video_post_duration_sec") or 0)
+    if limit:
+        duration = await asyncio.to_thread(video_duration, path)
+        if duration > limit:
+            raise _VideoTooLong(duration, limit)
+    options = list(info.get("privacy_level_options") or [])
+    if not task.tt_privacy or task.tt_privacy not in options:
+        raise _PrivacyUnavailable(task.tt_privacy or "", options)
+    toggles = effective_toggles(
+        info,
+        tt_disable_comment=task.tt_disable_comment,
+        tt_disable_duet=task.tt_disable_duet,
+        tt_disable_stitch=task.tt_disable_stitch,
+    )
+    publish_id = await tiktok_api.direct_post(
+        access,
+        path,
+        task.title,
+        privacy=task.tt_privacy,
+        disable_comment=toggles["tt_disable_comment"],
+        disable_duet=toggles["tt_disable_duet"],
+        disable_stitch=toggles["tt_disable_stitch"],
+        brand_content_toggle=task.tt_brand_content,
+        brand_organic_toggle=task.tt_brand_organic,
+        creator_info=info,
+    )
+    await tiktok_api.poll_publish_status(access, publish_id)
+    return publish_id
+
+
 async def _publish(task: _Task, path: str) -> str:
     if task.platform == "youtube":
         return await asyncio.to_thread(_yt_upload, task, path)
@@ -263,19 +371,7 @@ async def _publish(task: _Task, path: str) -> str:
         access = await tiktok_tokens.access_token(task.account_id)
         if not task.tt_direct:
             return await tiktok_api.upload_to_inbox(access, path)
-        publish_id = await tiktok_api.direct_post(
-            access,
-            path,
-            task.title,
-            privacy=task.tt_privacy or "",
-            disable_comment=task.tt_disable_comment,
-            disable_duet=task.tt_disable_duet,
-            disable_stitch=task.tt_disable_stitch,
-            brand_content_toggle=task.tt_brand_content,
-            brand_organic_toggle=task.tt_brand_organic,
-        )
-        await tiktok_api.poll_publish_status(access, publish_id)
-        return publish_id
+        return await _tt_direct(task, path, access)
     raise ValueError(f"Неизвестная платформа: {task.platform}")
 
 
@@ -321,6 +417,7 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
     published = 0
     for task in await _claim_due(limit):
         extra_files: list[str] = []
+        keep_file = False
         lang = await user_lang(task.user_id)
         if not task.local_path or not os.path.exists(task.local_path):
             logger.warning("Файл job=%d пропал — возвращаю на скачивание", task.job_id)
@@ -343,26 +440,24 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
             logger.info("Опубликовано job=%d (%s) → %s", task.job_id, task.platform, remote_id)
             await _notify(bot, task.user_id, _success_msg(task, remote_id, lang))
         except Exception as exc:  # noqa: BLE001
-            logger.exception("Ошибка публикации job=%d", task.job_id)
-            await _finalize(task.job_id, remote_id=None, error=str(exc))
-            kb = None
-            if isinstance(exc, tiktok_api.TikTokScopeError):
-                msg = t("pub_tt_reconnect", lang, title=task.title)
-                kb = InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(
-                        text=t("btn_reconnect_tiktok", lang),
-                        callback_data="connect_tiktok",
-                    )
-                ]])
-            elif "spam_risk_too_many_pending_share" in str(exc):
-                msg = t("pub_tt_too_many", lang, title=task.title)
-            elif "spam_risk_too_many_posts" in str(exc):
-                msg = t("pub_tt_rate_limit", lang, title=task.title)
+            delay = _publish_retry_delay(task.publish_attempts, str(exc))
+            if delay is not None:
+                keep_file = True
+                await _reschedule(task.job_id, delay, str(exc))
+                hours = max(1, round(delay.total_seconds() / 3600))
+                logger.warning(
+                    "job=%d: TikTok отклонил по лимиту (%s) — повтор через %d ч",
+                    task.job_id, str(exc).splitlines()[0][:150], hours,
+                )
+                msg, kb = t("pub_tt_retry", lang, title=task.title, hours=hours), None
             else:
-                msg = t("pub_fail", lang, title=task.title, error=str(exc))
+                logger.exception("Ошибка публикации job=%d", task.job_id)
+                await _finalize(task.job_id, remote_id=None, error=str(exc))
+                msg, kb = _fail_msg(task, exc, lang)
             await _notify(bot, task.user_id, msg, reply_markup=kb)
         finally:
-            _cleanup(task.local_path)
+            if not keep_file:
+                _cleanup(task.local_path)
             for f in extra_files:
                 _cleanup(f)
     return published

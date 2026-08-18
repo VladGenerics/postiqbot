@@ -110,16 +110,21 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
 
     if screen == "newconn":
         rows = [
-            [_btn("🔗 Подключить аккаунт", "🔗 Connect account", lang, "nav:connect")],
+            [InlineKeyboardButton(text=t("btn_signin_youtube", lang),
+                                  callback_data="connect_youtube")],
+            [InlineKeyboardButton(text=t("btn_signin_tiktok", lang),
+                                  callback_data="connect_tiktok")],
             [_btn("➕ Добавить источник", "➕ Add source", lang, "nav:addsrc")],
             _back("connections", lang),
         ]
-        return "connections", t("menu_new_conn", lang), InlineKeyboardMarkup(inline_keyboard=rows)
+        return "connect", t("menu_new_conn", lang), InlineKeyboardMarkup(inline_keyboard=rows)
 
     if screen == "connect":
         rows = [
-            [InlineKeyboardButton(text=label("youtube", lang), callback_data="connect_youtube")],
-            [InlineKeyboardButton(text=label("tiktok", lang), callback_data="connect_tiktok")],
+            [InlineKeyboardButton(text=t("btn_signin_youtube", lang),
+                                  callback_data="connect_youtube")],
+            [InlineKeyboardButton(text=t("btn_signin_tiktok", lang),
+                                  callback_data="connect_tiktok")],
             _back("newconn", lang),
         ]
         return "connect", label("choose_platform", lang), InlineKeyboardMarkup(inline_keyboard=rows)

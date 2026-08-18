@@ -188,6 +188,17 @@ class Connection(Base):
     post_times: Mapped[list | None] = mapped_column(JSON, nullable=True)
     tz: Mapped[str] = mapped_column(String(48), default="UTC")
 
+    tt_auto: Mapped[bool] = mapped_column(Boolean, default=False)
+    tt_privacy: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    tt_disable_comment: Mapped[bool] = mapped_column(Boolean, default=True)
+    tt_disable_duet: Mapped[bool] = mapped_column(Boolean, default=True)
+    tt_disable_stitch: Mapped[bool] = mapped_column(Boolean, default=True)
+    tt_brand_organic: Mapped[bool] = mapped_column(Boolean, default=False)
+    tt_brand_content: Mapped[bool] = mapped_column(Boolean, default=False)
+    tt_consent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     overlay_file_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     overlay_position: Mapped[str | None] = mapped_column(String(16), nullable=True)
     overlay_scale: Mapped[int] = mapped_column(Integer, default=30)
@@ -243,6 +254,9 @@ class Job(Base):
     youtube_video_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     download_attempts: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    publish_attempts: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", nullable=False
     )
 

@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     tiktok_redirect_uri: str = "http://localhost:8080/tiktok/callback"
     tiktok_cookies_file: str = ""
     tiktok_direct_post: bool = False
+    tiktok_direct_any_source: bool = True
 
     fernet_key: str
 
