@@ -8,23 +8,32 @@ DEFAULT_LANG = "ru"
 LANGS = ("ru", "en")
 
 LABELS: dict[str, dict[str, str]] = {
-    "youtube": {"ru": "▷ Подключить YouTube", "en": "▷ Connect YouTube"},
-    "tiktok": {"ru": "♪ Подключить TikTok", "en": "♪ Connect TikTok"},
-    "connect": {"ru": "⊕ Подключить аккаунт", "en": "⊕ Connect account"},
-    "source": {"ru": "⊕ Добавить источник", "en": "⊕ Add source"},
-    "connections": {"ru": "☰ Мои подключения", "en": "☰ My connections"},
-    "tariff": {"ru": "◈ Тарифы", "en": "◈ Plans"},
-    "guide": {"ru": "※ Как пользоваться", "en": "※ How to use"},
-    "referral": {"ru": "✦ Пригласить друга", "en": "✦ Invite a friend"},
-    "support": {"ru": "✎ Поддержка", "en": "✎ Support"},
-    "profile": {"ru": "◉ Профиль", "en": "◉ Profile"},
-    "documents": {"ru": "§ Документы", "en": "§ Documents"},
-    "more": {"ru": "⋯ Ещё", "en": "⋯ More"},
+    "youtube": {"ru": "▶️ Подключить YouTube", "en": "▶️ Connect YouTube"},
+    "tiktok": {"ru": "🎵 Подключить TikTok", "en": "🎵 Connect TikTok"},
+    "connect": {"ru": "🔗 Подключить аккаунт", "en": "🔗 Connect account"},
+    "source": {"ru": "📡 Добавить источник", "en": "📡 Add source"},
+    "connections": {"ru": "📋 Мои подключения", "en": "📋 My connections"},
+    "tariff": {"ru": "💎 Тарифы", "en": "💎 Plans"},
+    "guide": {"ru": "📖 Как пользоваться", "en": "📖 How to use"},
+    "referral": {"ru": "🎁 Пригласить друга", "en": "🎁 Invite a friend"},
+    "support": {"ru": "💬 Поддержка", "en": "💬 Support"},
+    "profile": {"ru": "👤 Профиль", "en": "👤 Profile"},
+    "documents": {"ru": "📄 Документы", "en": "📄 Documents"},
+    "more": {"ru": "⚙️ Ещё", "en": "⚙️ More"},
     "choose_platform": {
         "ru": "Какой аккаунт подключить?",
         "en": "Which account to connect?",
     },
-    "lang": {"ru": "⇄ Switch to English", "en": "⇄ На русский"},
+    "lang": {"ru": "🌐 Switch to English", "en": "🌐 На русский"},
+}
+
+LEGACY_LABELS: dict[str, tuple[str, ...]] = {
+    "connect": ("⊕ Подключить аккаунт", "⊕ Connect account"),
+    "source": ("⊕ Добавить источник", "⊕ Add source"),
+    "connections": ("☰ Мои подключения", "☰ My connections"),
+    "profile": ("◉ Профиль", "◉ Profile"),
+    "tariff": ("💳 Тарифы", "💳 Plans", "◈ Тарифы", "◈ Plans"),
+    "more": ("ℹ️ Ещё", "ℹ️ More", "⋯ Ещё", "⋯ More"),
 }
 
 T: dict[str, dict[str, str]] = {
@@ -44,7 +53,7 @@ T: dict[str, dict[str, str]] = {
             "Start by connecting your channel, then add a source."
         ),
     },
-    "more_title": {"ru": "ℹ️ <b>Дополнительно</b>", "en": "ℹ️ <b>More</b>"},
+    "more_title": {"ru": "⚙️ <b>Дополнительно</b>", "en": "⚙️ <b>More</b>"},
     "menu_root": {
         "ru": "🏠 <b>Главное меню</b>\n\nВыбери раздел 👇",
         "en": "🏠 <b>Main menu</b>\n\nChoose a section 👇",
@@ -87,10 +96,10 @@ T: dict[str, dict[str, str]] = {
             "Choose a payment option 👇"
         ),
     },
-    "btn_buy_month": {"ru": "◷ Месяц — {rub} ₽", "en": "◷ Month — {rub} ₽"},
-    "btn_buy_month_star": {"ru": "◷ Месяц — {stars} ★", "en": "◷ Month — {stars} ★"},
-    "btn_buy_forever": {"ru": "∞ Навсегда — {rub} ₽", "en": "∞ Forever — {rub} ₽"},
-    "btn_buy_forever_star": {"ru": "∞ Навсегда — {stars} ★", "en": "∞ Forever — {stars} ★"},
+    "btn_buy_month": {"ru": "📅 Месяц — {rub} ₽", "en": "📅 Month — {rub} ₽"},
+    "btn_buy_month_star": {"ru": "📅 Месяц — {stars} ⭐", "en": "📅 Month — {stars} ⭐"},
+    "btn_buy_forever": {"ru": "♾️ Навсегда — {rub} ₽", "en": "♾️ Forever — {rub} ₽"},
+    "btn_buy_forever_star": {"ru": "♾️ Навсегда — {stars} ⭐", "en": "♾️ Forever — {stars} ⭐"},
     "inv_period_month": {"ru": "на месяц", "en": "for a month"},
     "my_sub_body": {
         "ru": "⭐ <b>Моя подписка</b>\n\n{status}",
@@ -101,8 +110,8 @@ T: dict[str, dict[str, str]] = {
         "en": "📋 <b>My connections</b>\nTap a link to configure:",
     },
     "mylist_empty": {
-        "ru": "📋 <b>Мои подключения</b>\n\nСвязок пока нет. Нажми «⊕ Новое подключение».",
-        "en": "📋 <b>My connections</b>\n\nNo connections yet. Tap «⊕ New connection».",
+        "ru": "📋 <b>Мои подключения</b>\n\nСвязок пока нет. Нажми «➕ Новое подключение».",
+        "en": "📋 <b>My connections</b>\n\nNo connections yet. Tap «➕ New connection».",
     },
     "lang_switched": {
         "ru": "🌐 Язык переключён на русский.",
@@ -111,59 +120,59 @@ T: dict[str, dict[str, str]] = {
     "limit_accounts": {
         "ru": (
             "⚠️ На твоём тарифе можно подключить до <b>{limit}</b> аккаунтов. "
-            "Удали лишний или оформи тариф побольше («◈ Тарифы»)."
+            "Удали лишний или оформи тариф побольше («💎 Тарифы»)."
         ),
         "en": (
             "⚠️ Your plan allows up to <b>{limit}</b> accounts. "
-            "Remove one or upgrade your plan («◈ Plans»)."
+            "Remove one or upgrade your plan («💎 Plans»)."
         ),
     },
     "tariffs_caption": {
-        "ru": "💳 <b>Тарифы</b>\n\n{status}\n{prices}\n\nВыбери тариф ниже 👇",
-        "en": "💳 <b>Plans</b>\n\n{status}\n{prices}\n\nPick a plan below 👇",
+        "ru": "💎 <b>Тарифы</b>\n\n{status}\n{prices}\n\nВыбери тариф ниже 👇",
+        "en": "💎 <b>Plans</b>\n\n{status}\n{prices}\n\nPick a plan below 👇",
     },
     "pay_choose": {
         "ru": "💳 Тариф <b>{plan}</b>. Выбери способ оплаты:",
         "en": "💳 <b>{plan}</b> plan. Choose a payment method:",
     },
-    "btn_pay_stars": {"ru": "★ Telegram Stars ({stars})", "en": "★ Telegram Stars ({stars})"},
-    "btn_pay_rub": {"ru": "₽ СБП / карта ({price})", "en": "▭ Card / SBP ({price})"},
+    "btn_pay_stars": {"ru": "⭐ Telegram Stars ({stars})", "en": "⭐ Telegram Stars ({stars})"},
+    "btn_pay_rub": {"ru": "💳 СБП / карта ({price})", "en": "💳 Card / SBP ({price})"},
     "price_line": {
         "ru": "• {plan} — <b>{price}</b> ({accounts} акк, {videos} видео/день)",
         "en": "• {plan} — <b>{price}</b> ({accounts} accounts, {videos} videos/day)",
     },
     "rub_soon": {
-        "ru": "₽ Оплата через СБП/карту скоро подключится. Пока можно оплатить через Telegram Stars (★) или написать в «✎ Поддержка».",
-        "en": "₽ Card/SBP payment is coming soon. For now use Telegram Stars (★) or contact «✎ Support».",
+        "ru": "₽ Оплата через СБП/карту скоро подключится. Пока можно оплатить через Telegram Stars (⭐) или написать в «💬 Поддержка».",
+        "en": "₽ Card/SBP payment is coming soon. For now use Telegram Stars (⭐) or contact «💬 Support».",
     },
     "pay_link": {
         "ru": "💳 Счёт на <b>{amount} ₽</b> ({plan}) создан.\nОплати по кнопке ниже — доступ активируется автоматически после оплаты.",
         "en": "💳 Invoice for <b>{amount} ₽</b> ({plan}) created.\nPay via the button below — access activates automatically after payment.",
     },
-    "btn_pay_now": {"ru": "▭ Оплатить {amount} ₽", "en": "▭ Pay {amount} ₽"},
+    "btn_pay_now": {"ru": "💳 Оплатить {amount} ₽", "en": "💳 Pay {amount} ₽"},
     "pay_error": {
-        "ru": "⚠️ Не удалось создать счёт. Попробуй позже или напиши в «✎ Поддержка».",
-        "en": "⚠️ Couldn't create the invoice. Try later or contact «✎ Support».",
+        "ru": "⚠️ Не удалось создать счёт. Попробуй позже или напиши в «💬 Поддержка».",
+        "en": "⚠️ Couldn't create the invoice. Try later or contact «💬 Support».",
     },
     "status_admin": {"ru": "♾ Безлимитный доступ (админ)", "en": "♾ Unlimited access (admin)"},
     "expiry_soon": {
         "ru": (
             "⏳ Твой доступ заканчивается <b>{date}</b>.\n"
-            "Продли подписку, чтобы бот не переставал публиковать — нажми «◈ Тарифы»."
+            "Продли подписку, чтобы бот не переставал публиковать — нажми «💎 Тарифы»."
         ),
         "en": (
             "⏳ Your access ends on <b>{date}</b>.\n"
-            "Renew to keep the bot publishing — tap «◈ Plans»."
+            "Renew to keep the bot publishing — tap «💎 Plans»."
         ),
     },
     "publish_failed_auth": {
         "ru": (
             "❌ Не удалось опубликовать «{title}»: возможно, отозван доступ к каналу.\n"
-            "Переподключи аккаунт: «⊕ Новое подключение» → «→ Войти через …»."
+            "Переподключи аккаунт: «➕ Новое подключение» → «🔓 Войти через …»."
         ),
         "en": (
             "❌ Couldn't publish «{title}»: channel access may have been revoked.\n"
-            "Reconnect the account: «⊕ New connection» → «→ Sign in with …»."
+            "Reconnect the account: «➕ New connection» → «🔓 Sign in with …»."
         ),
     },
     "publish_failed": {
@@ -190,25 +199,25 @@ T: dict[str, dict[str, str]] = {
             "🔗 Подключено аккаунтов: <b>{accounts}</b>\n"
             "📋 Активных связок: <b>{connections}</b>\n"
             "🎁 Приглашено друзей: <b>{invited}</b>\n\n"
-            "Продлить или сменить тариф — «◈ Тарифы»."
+            "Продлить или сменить тариф — «💎 Тарифы»."
         ),
         "en": (
             "👤 <b>Profile</b>\n\n{status}\n\n"
             "🔗 Connected accounts: <b>{accounts}</b>\n"
             "📋 Active connections: <b>{connections}</b>\n"
             "🎁 Friends invited: <b>{invited}</b>\n\n"
-            "Renew or change your plan — «◈ Plans»."
+            "Renew or change your plan — «💎 Plans»."
         ),
     },
     "documents_title": {
         "ru": "📄 <b>Документы и поддержка</b>\n\nОзнакомься с условиями сервиса:",
         "en": "📄 <b>Documents & support</b>\n\nPlease review the service terms:",
     },
-    "btn_privacy": {"ru": "§ Политика конфиденциальности", "en": "§ Privacy Policy"},
-    "btn_terms": {"ru": "§ Пользовательское соглашение", "en": "§ Terms of Service"},
+    "btn_privacy": {"ru": "🔐 Политика конфиденциальности", "en": "🔐 Privacy Policy"},
+    "btn_terms": {"ru": "📄 Пользовательское соглашение", "en": "📄 Terms of Service"},
     "support_line": {
-        "ru": "\n\n✍️ Поддержка: кнопка «Поддержка» в меню{contact}",
-        "en": "\n\n✍️ Support: the «Support» button in the menu{contact}",
+        "ru": "\n\n💬 Поддержка: кнопка «Поддержка» в меню{contact}",
+        "en": "\n\n💬 Support: the «Support» button in the menu{contact}",
     },
     "support_prompt": {
         "ru": "✍️ Напиши своё сообщение/вопрос одним сообщением — я передам в поддержку.",
@@ -223,8 +232,8 @@ T: dict[str, dict[str, str]] = {
         "en": "⚠️ Support is temporarily unavailable, try later.",
     },
     "source_need_account": {
-        "ru": "Сначала подключи свой канал («▷ Подключить YouTube» или «♪ Подключить TikTok»).",
-        "en": "First connect your channel («▷ Connect YouTube» or «♪ Connect TikTok»).",
+        "ru": "Сначала подключи свой канал («🔓 Войти через YouTube» или «🔓 Войти через TikTok»).",
+        "en": "First connect your channel («🔓 Sign in with YouTube» or «🔓 Sign in with TikTok»).",
     },
     "source_prompt": {
         "ru": (
@@ -262,10 +271,10 @@ T: dict[str, dict[str, str]] = {
             "<i>The link is valid for 10 minutes.</i>"
         ),
     },
-    "btn_login_google": {"ru": "→ Войти через Google", "en": "→ Sign in with Google"},
-    "btn_login_tiktok": {"ru": "→ Войти через TikTok", "en": "→ Sign in with TikTok"},
-    "btn_signin_youtube": {"ru": "→ Войти через YouTube", "en": "→ Sign in with YouTube"},
-    "btn_signin_tiktok": {"ru": "→ Войти через TikTok", "en": "→ Sign in with TikTok"},
+    "btn_login_google": {"ru": "🔓 Войти через Google", "en": "🔓 Sign in with Google"},
+    "btn_login_tiktok": {"ru": "🔓 Войти через TikTok", "en": "🔓 Sign in with TikTok"},
+    "btn_signin_youtube": {"ru": "🔓 Войти через YouTube", "en": "🔓 Sign in with YouTube"},
+    "btn_signin_tiktok": {"ru": "🔓 Войти через TikTok", "en": "🔓 Sign in with TikTok"},
     "acc_connected_youtube": {
         "ru": (
             "✅ Канал <b>{title}</b> подключён!\n"
@@ -292,40 +301,42 @@ T: dict[str, dict[str, str]] = {
             "Бот автоматически забирает новые видео с канала-источника и публикует их "
             "на твой канал (YouTube или TikTok) по расписанию.\n\n"
             "<b>1. Подключи свой канал</b>\n"
-            "«⊕ Подключения» → «⊕ Новое подключение» → «→ Войти через YouTube» "
-            "или «→ Войти через TikTok» (вход через официальный OAuth).\n\n"
+            "«➕ Подключения» → «➕ Новое подключение» → «🔓 Войти через YouTube» "
+            "или «🔓 Войти через TikTok» (вход через официальный OAuth).\n\n"
             "<b>2. Добавь источник</b>\n"
-            "«⊕ Новое подключение» → «⊕ Добавить источник» → пришли ссылку на канал "
+            "«➕ Новое подключение» → «📡 Добавить источник» → пришли ссылку на канал "
             "(YouTube @handle/ссылку или ссылку на профиль TikTok).\n\n"
             "<b>3. Настрой связку</b>\n"
-            "«☰ Мои подключения» → выбери связку: расписание (сразу/интервал/по времени), "
+            "«📋 Мои подключения» → выбери связку: расписание (сразу/интервал/по времени), "
             "оверлей (картинка/GIF), доступ, пауза.\n"
             "📥 <b>Залить архив</b> — поставить в очередь <b>прошлые</b> видео источника "
             "(старые → новые). Выходят по 4/день на связку.\n\n"
             "<b>Важно</b>\n"
             "• Публикуются только <b>новые</b> видео (одно видео не репостится дважды).\n"
-            "• TikTok-публикация приходит в черновики — публикуешь сам в приложении.\n"
-            "• Доступ: триал, затем подписка («◈ Тарифы»). Вопросы — «✎ Поддержка»."
+            "• TikTok: перед выходом бот присылает карточку — жмёшь «✅ Опубликовать», "
+            "и видео уходит в ленту. В связке можно включить автопубликацию без вопросов.\n"
+            "• Доступ: триал, затем подписка («💎 Тарифы»). Вопросы — «💬 Поддержка»."
         ),
         "en": (
             "📖 <b>How to use PosttiqBot</b>\n\n"
             "The bot automatically takes new videos from a source channel and publishes "
             "them to your channel (YouTube or TikTok) on schedule.\n\n"
             "<b>1. Connect your channel</b>\n"
-            "«⊕ Connections» → «⊕ New connection» → «→ Sign in with YouTube» "
-            "or «→ Sign in with TikTok» (official OAuth sign-in).\n\n"
+            "«➕ Connections» → «➕ New connection» → «🔓 Sign in with YouTube» "
+            "or «🔓 Sign in with TikTok» (official OAuth sign-in).\n\n"
             "<b>2. Add a source</b>\n"
-            "«⊕ New connection» → «⊕ Add source» → send a channel link "
+            "«➕ New connection» → «📡 Add source» → send a channel link "
             "(YouTube @handle/link or a TikTok profile link).\n\n"
             "<b>3. Configure the link</b>\n"
-            "«☰ My connections» → pick a link: schedule (immediate/interval/times), "
+            "«📋 My connections» → pick a link: schedule (immediate/interval/times), "
             "overlay (image/GIF), visibility, pause.\n"
             "📥 <b>Backfill</b> — queue the source's <b>past</b> videos "
             "(oldest → newest). They publish at 4/day per connection.\n\n"
             "<b>Important</b>\n"
             "• Only <b>new</b> videos are published (a video isn't reposted twice).\n"
-            "• TikTok posts land in drafts — you publish them yourself in the app.\n"
-            "• Access: trial, then subscription («◈ Plans»). Questions — «✎ Support»."
+            "• TikTok: the bot sends a confirmation card first — tap «✅ Post it» and the "
+            "video goes to your feed. A connection can be switched to auto-posting.\n"
+            "• Access: trial, then subscription («💎 Plans»). Questions — «💬 Support»."
         ),
     },
     "referral": {
@@ -344,11 +355,11 @@ T: dict[str, dict[str, str]] = {
             "👥 Invited: <b>{invited}</b>\n💳 Paid (bonus granted): <b>{paid}</b>"
         ),
     },
-    "c_active": {"ru": "● активна", "en": "● active"},
-    "c_paused": {"ru": "‖ на паузе", "en": "‖ paused"},
-    "c_sched_interval": {"ru": "каждые {n} мин", "en": "every {n} min"},
-    "c_sched_times": {"ru": "в {times} ({tz})", "en": "at {times} ({tz})"},
-    "c_sched_now": {"ru": "сразу", "en": "immediately"},
+    "c_active": {"ru": "🟢 активна", "en": "🟢 active"},
+    "c_paused": {"ru": "⏸ на паузе", "en": "⏸ paused"},
+    "c_sched_interval": {"ru": "⏱ каждые {n} мин", "en": "⏱ every {n} min"},
+    "c_sched_times": {"ru": "🕐 в {times} ({tz})", "en": "🕐 at {times} ({tz})"},
+    "c_sched_now": {"ru": "⚡ сразу", "en": "⚡ immediately"},
     "c_ovl_on": {"ru": "вкл ({pos}, {scale}%)", "en": "on ({pos}, {scale}%)"},
     "c_ovl_off": {"ru": "выкл", "en": "off"},
     "c_ovl_blocked": {"ru": "недоступно для TikTok", "en": "unavailable for TikTok"},
@@ -358,9 +369,9 @@ T: dict[str, dict[str, str]] = {
         "en": "Overlay is unavailable when posting to a TikTok feed: TikTok rules "
               "prohibit superimposing logos or watermarks on the video.",
     },
-    "c_priv_private": {"ru": "приватное", "en": "private"},
-    "c_priv_unlisted": {"ru": "по ссылке", "en": "unlisted"},
-    "c_priv_public": {"ru": "публичное", "en": "public"},
+    "c_priv_private": {"ru": "🔒 приватное", "en": "🔒 private"},
+    "c_priv_unlisted": {"ru": "🔗 по ссылке", "en": "🔗 unlisted"},
+    "c_priv_public": {"ru": "🌍 публичное", "en": "🌍 public"},
     "c_card": {
         "ru": (
             "<b>{name}</b>\n\n"
@@ -383,20 +394,20 @@ T: dict[str, dict[str, str]] = {
             "⚙️ Status: {status}"
         ),
     },
-    "c_btn_pause": {"ru": "‖ Поставить на паузу", "en": "‖ Pause"},
-    "c_btn_resume": {"ru": "▸ Возобновить", "en": "▸ Resume"},
-    "c_btn_visibility": {"ru": "◎ Доступ: {priv}", "en": "◎ Visibility: {priv}"},
-    "c_btn_schedule": {"ru": "◷ Расписание: {sched}", "en": "◷ Schedule: {sched}"},
-    "c_btn_overlay": {"ru": "▩ Оверлей: {ovl}", "en": "▩ Overlay: {ovl}"},
-    "c_btn_tiktok": {"ru": "♪ TikTok: {mode}", "en": "♪ TikTok: {mode}"},
+    "c_btn_pause": {"ru": "⏸ Поставить на паузу", "en": "⏸ Pause"},
+    "c_btn_resume": {"ru": "▶️ Возобновить", "en": "▶️ Resume"},
+    "c_btn_visibility": {"ru": "👁 Доступ: {priv}", "en": "👁 Visibility: {priv}"},
+    "c_btn_schedule": {"ru": "⏰ Расписание: {sched}", "en": "⏰ Schedule: {sched}"},
+    "c_btn_overlay": {"ru": "🖼 Оверлей: {ovl}", "en": "🖼 Overlay: {ovl}"},
+    "c_btn_tiktok": {"ru": "🎵 TikTok: {mode}", "en": "🎵 TikTok: {mode}"},
     "c_tt_auto": {"ru": "автопубликация", "en": "auto-posting"},
     "c_tt_card": {"ru": "с подтверждением", "en": "confirm each"},
-    "c_btn_delete": {"ru": "⊗ Удалить", "en": "⊗ Delete"},
-    "c_btn_to_list": {"ru": "« К списку", "en": "« Back to list"},
-    "c_btn_back": {"ru": "« Назад", "en": "« Back"},
-    "c_btn_cancel": {"ru": "« Отмена", "en": "« Cancel"},
+    "c_btn_delete": {"ru": "🗑 Удалить", "en": "🗑 Delete"},
+    "c_btn_to_list": {"ru": "⬅️ К списку", "en": "⬅️ Back to list"},
+    "c_btn_back": {"ru": "⬅️ Назад", "en": "⬅️ Back"},
+    "c_btn_cancel": {"ru": "❌ Отмена", "en": "❌ Cancel"},
     "ask_cancelled": {"ru": "Отменено", "en": "Cancelled"},
-    "c_btn_del_yes": {"ru": "⊗ Да, удалить", "en": "⊗ Yes, delete"},
+    "c_btn_del_yes": {"ru": "🗑 Да, удалить", "en": "🗑 Yes, delete"},
     "c_not_found": {"ru": "Связка не найдена", "en": "Connection not found"},
     "c_not_found_dot": {"ru": "Связка не найдена.", "en": "Connection not found."},
     "c_resumed": {"ru": "Возобновлено", "en": "Resumed"},
@@ -427,9 +438,9 @@ T: dict[str, dict[str, str]] = {
             "• <b>Times</b> — at set hours of the day"
         ),
     },
-    "c_sched_btn_now": {"ru": "↯ Сразу", "en": "↯ Immediately"},
-    "c_sched_btn_int": {"ru": "↻ Интервал", "en": "↻ Interval"},
-    "c_sched_btn_times": {"ru": "◷ По времени", "en": "◷ Times"},
+    "c_sched_btn_now": {"ru": "⚡ Сразу", "en": "⚡ Immediately"},
+    "c_sched_btn_int": {"ru": "⏱ Интервал", "en": "⏱ Interval"},
+    "c_sched_btn_times": {"ru": "🕐 По времени", "en": "🕐 Times"},
     "c_sched_now_toast": {"ru": "Публикую сразу", "en": "Publishing immediately"},
     "c_int_prompt": {
         "ru": "Пришли интервал между публикациями в <b>минутах</b> (например <code>120</code> = раз в 2 часа).",
@@ -487,8 +498,8 @@ T: dict[str, dict[str, str]] = {
             "<b>transparency is lost</b> — the background turns white."
         ),
     },
-    "c_ovl_btn_replace": {"ru": "⇄ Заменить", "en": "⇄ Replace"},
-    "c_ovl_btn_remove": {"ru": "⊗ Убрать", "en": "⊗ Remove"},
+    "c_ovl_btn_replace": {"ru": "🔁 Заменить", "en": "🔁 Replace"},
+    "c_ovl_btn_remove": {"ru": "🗑 Убрать", "en": "🗑 Remove"},
     "c_ovl_prompt": {
         "ru": "Пришли <b>картинку</b>, <b>GIF</b> или стикер — наложу её на каждое видео этой связки.\n\n",
         "en": "Send an <b>image</b>, <b>GIF</b> or sticker — I'll overlay it on every video of this connection.\n\n",
@@ -509,9 +520,9 @@ T: dict[str, dict[str, str]] = {
     "c_ovl_scale_toast": {"ru": "Размер обновлён", "en": "Size updated"},
     "c_ovl_removed_toast": {"ru": "Оверлей убран", "en": "Overlay removed"},
     "c_not_found_short": {"ru": "Не найдено", "en": "Not found"},
-    "c_btn_backfill": {"ru": "↓ Залить архив", "en": "↓ Backfill"},
+    "c_btn_backfill": {"ru": "📥 Залить архив", "en": "📥 Backfill"},
     "c_default_name": {"ru": "Связка #{id}", "en": "Connection #{id}"},
-    "c_btn_rename": {"ru": "✎ Переименовать", "en": "✎ Rename"},
+    "c_btn_rename": {"ru": "✏️ Переименовать", "en": "✏️ Rename"},
     "c_ren_prompt": {
         "ru": "Пришли новое название связки (до 64 символов).",
         "en": "Send a new name for the connection (up to 64 characters).",
@@ -521,7 +532,7 @@ T: dict[str, dict[str, str]] = {
         "en": "Too long — 64 characters max. Try a shorter one.",
     },
     "c_renamed_toast": {"ru": "Название сохранено", "en": "Name saved"},
-    "f_btn_folder": {"ru": "▤ Папка: {folder}", "en": "▤ Folder: {folder}"},
+    "f_btn_folder": {"ru": "📁 Папка: {folder}", "en": "📁 Folder: {folder}"},
     "f_none": {"ru": "без папки", "en": "no folder"},
     "f_title": {
         "ru": "📁 <b>{name}</b>\n\nСвязки в папке:",
@@ -530,25 +541,25 @@ T: dict[str, dict[str, str]] = {
     "f_empty": {
         "ru": (
             "📁 <b>{name}</b>\n\nПапка пуста. Открой связку и нажми "
-            "«▤ Папка», чтобы переместить её сюда."
+            "«📁 Папка», чтобы переместить её сюда."
         ),
         "en": (
             "📁 <b>{name}</b>\n\nThis folder is empty. Open a connection and tap "
-            "«▤ Folder» to move it here."
+            "«📁 Folder» to move it here."
         ),
     },
-    "f_btn_new": {"ru": "⊕ Новая папка", "en": "⊕ New folder"},
+    "f_btn_new": {"ru": "➕ Новая папка", "en": "➕ New folder"},
     "f_new_prompt": {
         "ru": "Пришли название папки (до 64 символов).",
         "en": "Send a folder name (up to 64 characters).",
     },
     "f_created": {"ru": "✅ Папка «{name}» создана.", "en": "✅ Folder «{name}» created."},
-    "f_btn_rename": {"ru": "✎ Переименовать папку", "en": "✎ Rename folder"},
+    "f_btn_rename": {"ru": "✏️ Переименовать папку", "en": "✏️ Rename folder"},
     "f_ren_prompt": {
         "ru": "Пришли новое название папки (до 64 символов).",
         "en": "Send a new folder name (up to 64 characters).",
     },
-    "f_btn_delete": {"ru": "⊗ Удалить папку", "en": "⊗ Delete folder"},
+    "f_btn_delete": {"ru": "🗑 Удалить папку", "en": "🗑 Delete folder"},
     "f_del_confirm": {
         "ru": (
             "Удалить папку «{name}»?\n"
@@ -566,7 +577,7 @@ T: dict[str, dict[str, str]] = {
         "ru": "📁 Куда переместить связку?",
         "en": "📁 Where to move the connection?",
     },
-    "mv_no_folder": {"ru": "Без папки", "en": "No folder"},
+    "mv_no_folder": {"ru": "📂 Без папки", "en": "📂 No folder"},
     "mv_moved_toast": {"ru": "Перемещено", "en": "Moved"},
     "gate_prompt": {
         "ru": (
@@ -578,8 +589,8 @@ T: dict[str, dict[str, str]] = {
             "subscribe to our channel 👇"
         ),
     },
-    "gate_btn_join": {"ru": "→ Перейти в канал", "en": "→ Go to channel"},
-    "gate_btn_check": {"ru": "✓ Я подписался — проверить", "en": "✓ I subscribed — check"},
+    "gate_btn_join": {"ru": "📢 Перейти в канал", "en": "📢 Go to channel"},
+    "gate_btn_check": {"ru": "✅ Я подписался — проверить", "en": "✅ I subscribed — check"},
     "gate_ok": {
         "ru": "✅ Подписка подтверждена! Тебе начислено <b>7 дней</b> бесплатного доступа. Добро пожаловать! 🎉",
         "en": "✅ Subscription confirmed! You've been granted <b>7 days</b> of free access. Welcome! 🎉",
@@ -838,12 +849,12 @@ T: dict[str, dict[str, str]] = {
             "Music Usage Confirmation</a>."
         ),
     },
-    "ttc_btn_title": {"ru": "✎ Изменить подпись", "en": "✎ Edit caption"},
-    "ttc_btn_go": {"ru": "✓ Опубликовать", "en": "✓ Post it"},
-    "ttc_btn_no": {"ru": "✕ Отменить", "en": "✕ Cancel"},
+    "ttc_btn_title": {"ru": "✏️ Изменить подпись", "en": "✏️ Edit caption"},
+    "ttc_btn_go": {"ru": "✅ Опубликовать", "en": "✅ Post it"},
+    "ttc_btn_no": {"ru": "❌ Отменить", "en": "❌ Cancel"},
     "ttc_btn_auto": {
-        "ru": "↯ Больше не спрашивать — настроить автопубликацию",
-        "en": "↯ Stop asking — set up auto-posting",
+        "ru": "⚡ Больше не спрашивать — настроить автопубликацию",
+        "en": "⚡ Stop asking — set up auto-posting",
     },
     "ttc_ask_title": {
         "ru": "Пришли новую подпись к видео (до 150 символов).",
@@ -957,10 +968,10 @@ T: dict[str, dict[str, str]] = {
             "revoke it with the button below."
         ),
     },
-    "tts_btn_on": {"ru": "↯ Включить автопубликацию", "en": "↯ Enable auto-posting"},
+    "tts_btn_on": {"ru": "⚡ Включить автопубликацию", "en": "⚡ Enable auto-posting"},
     "tts_btn_off": {
-        "ru": "✕ Выключить (вернуть подтверждение)",
-        "en": "✕ Turn off (confirm each again)",
+        "ru": "🛑 Выключить (вернуть подтверждение)",
+        "en": "🛑 Turn off (confirm each again)",
     },
     "tts_on": {
         "ru": (
@@ -1017,8 +1028,8 @@ T: dict[str, dict[str, str]] = {
         ),
     },
     "btn_reconnect_tiktok": {
-        "ru": "↻ Переподключить TikTok",
-        "en": "↻ Reconnect TikTok",
+        "ru": "🔄 Переподключить TikTok",
+        "en": "🔄 Reconnect TikTok",
     },
     "sup_greeting": {
         "ru": (
@@ -1042,19 +1053,19 @@ T: dict[str, dict[str, str]] = {
     },
     "support_open": {
         "ru": (
-            "🛠 <b>Поддержка</b>\n\n"
+            "💬 <b>Поддержка</b>\n\n"
             "Нажми кнопку ниже — откроется чат поддержки. Напиши там свой вопрос "
             "или проблему, можно со скриншотами. Мы ответим в том же чате."
         ),
         "en": (
-            "🛠 <b>Support</b>\n\n"
+            "💬 <b>Support</b>\n\n"
             "Tap the button below to open the support chat. Describe your question "
             "or issue there (screenshots welcome). We'll reply in that chat."
         ),
     },
     "support_open_btn": {
-        "ru": "→ Открыть чат поддержки",
-        "en": "→ Open support chat",
+        "ru": "💬 Открыть чат поддержки",
+        "en": "💬 Open support chat",
     },
     "inv_title": {"ru": "Подписка PosttiqBot — {plan}", "en": "PosttiqBot subscription — {plan}"},
     "inv_desc": {"ru": "Доступ к авто-репостингу {period}.", "en": "Auto-reposting access {period}."},
@@ -1074,8 +1085,8 @@ def label(action: str, lang: str) -> str:
 
 
 def labels(action: str) -> set[str]:
-    """Все варианты метки (для матчинга нажатия независимо от языка)."""
-    return set(LABELS[action].values())
+    """Все варианты метки (для матчинга нажатия независимо от языка и версии)."""
+    return set(LABELS[action].values()) | set(LEGACY_LABELS.get(action, ()))
 
 
 async def user_lang(telegram_id: int) -> str:

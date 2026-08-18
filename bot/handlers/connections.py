@@ -55,9 +55,9 @@ class FolderFlow(StatesGroup):
 
 
 _POSITION_LABELS = {
-    "top_left": "↖", "top_center": "↑", "top_right": "↗",
-    "middle_left": "←", "center": "●", "middle_right": "→",
-    "bottom_left": "↙", "bottom_center": "↓", "bottom_right": "↘",
+    "top_left": "↖", "top_center": "⬆", "top_right": "↗",
+    "middle_left": "⬅", "center": "⏺", "middle_right": "➡",
+    "bottom_left": "↙", "bottom_center": "⬇", "bottom_right": "↘",
 }
 _POSITION_GRID = [
     ["top_left", "top_center", "top_right"],
@@ -153,7 +153,7 @@ async def _load_folder(folder_id: int, user_id: int) -> Folder | None:
 
 def _conn_btn_text(c: Connection) -> str:
     label = c.name or f"{c.source_channel.channel_title} → {c.publish_account.channel_title}"
-    return f"{'●' if c.is_active else '‖'} {label}"
+    return f"{'🟢' if c.is_active else '⏸'} {label}"
 
 
 def _list_markup(connections: list[Connection]) -> InlineKeyboardMarkup:
@@ -169,7 +169,7 @@ async def _overview_rows(user_id: int, lang: str) -> tuple[list[list[InlineKeybo
     folders = await _load_folders(user_id)
     connections = await _load_connections(user_id, None, only_folder=True)
     rows = [
-        [InlineKeyboardButton(text=f"▤ {f.name} ({n})", callback_data=f"fld:{f.id}")]
+        [InlineKeyboardButton(text=f"📁 {f.name} ({n})", callback_data=f"fld:{f.id}")]
         for f, n in folders
     ]
     rows += [
@@ -533,13 +533,13 @@ async def move_menu(callback: CallbackQuery) -> None:
     folders = await _load_folders(callback.from_user.id)
     rows = [
         [InlineKeyboardButton(
-            text=("◉ " if conn.folder_id == f.id else "○ ") + f.name,
+            text=("• " if conn.folder_id == f.id else "") + f"📁 {f.name}",
             callback_data=f"conn_mvto:{conn_id}:{f.id}",
         )]
         for f, _ in folders
     ]
     rows.append([InlineKeyboardButton(
-        text=("◉ " if conn.folder_id is None else "○ ") + t("mv_no_folder", lang),
+        text=("• " if conn.folder_id is None else "") + t("mv_no_folder", lang),
         callback_data=f"conn_mvto:{conn_id}:0",
     )])
     rows.append([InlineKeyboardButton(text=t("f_btn_new", lang), callback_data=f"conn_mvnew:{conn_id}")])
@@ -804,21 +804,18 @@ async def got_times(message: Message, state: FSMContext) -> None:
 
 
 def _overlay_markup(conn: Connection, lang: str) -> InlineKeyboardMarkup:
-    def _pick(text: str, chosen: bool) -> str:
-        return f"[{text}]" if chosen else text
-
     rows = []
     for grid_row in _POSITION_GRID:
         rows.append([
             InlineKeyboardButton(
-                text=_pick(_POSITION_LABELS[p], conn.overlay_position == p),
+                text=("• " if conn.overlay_position == p else "") + _POSITION_LABELS[p],
                 callback_data=f"ovl_pos:{conn.id}:{p}",
             )
             for p in grid_row
         ])
     rows.append([
         InlineKeyboardButton(
-            text=_pick(f"{s}%", conn.overlay_scale == s),
+            text=("• " if conn.overlay_scale == s else "") + f"{s}%",
             callback_data=f"ovl_scale:{conn.id}:{s}",
         )
         for s in (20, 35, 50, 75, 100)

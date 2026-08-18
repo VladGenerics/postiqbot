@@ -123,16 +123,16 @@ def _screen_text(conn: Connection, info: dict, lang: str) -> str:
 def _screen_markup(conn: Connection, info: dict, lang: str) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for level in info.get("privacy_level_options") or []:
-        mark = "◉ " if conn.tt_privacy == level else "○ "
+        mark = "🔘 " if conn.tt_privacy == level else "⚪ "
         rows.append([InlineKeyboardButton(
             text=mark + t(_PRIVACY_LABELS.get(level, "ttc_prv_private"), lang),
             callback_data=f"ttsp:{conn.id}:{level}",
         )])
     for field, label_key, blocked_key in _TOGGLES:
         if info.get(blocked_key):
-            mark = "⊘"
+            mark = "🚫"
         else:
-            mark = "▣" if not getattr(conn, field) else "□"
+            mark = "☑️" if not getattr(conn, field) else "⬜️"
         rows.append([InlineKeyboardButton(
             text=f"{mark} {t(label_key, lang)}",
             callback_data=f"ttst:{conn.id}:{field}",
@@ -142,7 +142,7 @@ def _screen_markup(conn: Connection, info: dict, lang: str) -> InlineKeyboardMar
         ("tt_brand_content", "ttc_brand_content"),
     ):
         rows.append([InlineKeyboardButton(
-            text=("▣ " if getattr(conn, field) else "□ ") + t(label_key, lang),
+            text=("☑️ " if getattr(conn, field) else "⬜️ ") + t(label_key, lang),
             callback_data=f"ttst:{conn.id}:{field}",
         )])
     if auto_enabled(conn):

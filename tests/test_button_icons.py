@@ -1,4 +1,4 @@
-"""Подписи кнопок — монохромные глифы, а не эмодзи."""
+"""Подписи кнопок — с эмодзи, и только с эмодзи."""
 from __future__ import annotations
 
 import ast
@@ -22,24 +22,34 @@ _ALWAYS_EMOJI = [
     (0x1F000, 0x1FAFF),
 ]
 
+_REJECTED = frozenset("◉○▣□⊘⊕⊗☰◈※✦§⋯⇄▷♪◷▭▩↯↻▤‖▸◎★∞✓✕✎●→↓")
+
 _BUTTON_KEY = re.compile(r"btn|^mv_no_folder$|^c_active$|^c_paused$|^c_priv_|^c_sched_(now|interval|times)$")
+
+_NOT_A_BUTTON = {"choose_platform"}
 
 
 def _emoji(value: str) -> list[str]:
-    bad = []
-    for ch in value:
+    """Настоящие эмодзи в строке: цветная картинка, а не глиф шрифтом."""
+    found = []
+    for i, ch in enumerate(value):
         cp = ord(ch)
         if ch == "️":
-            bad.append("U+FE0F (variation selector)")
+            found.append(f"U+FE0F после {value[i - 1] if i else '?'}")
         elif any(lo <= cp <= hi for lo, hi in _ALWAYS_EMOJI):
-            bad.append(f"U+{cp:04X} {ch}")
-    return bad
+            found.append(f"U+{cp:04X} {ch}")
+    return found
+
+
+def _rejected(value: str) -> list[str]:
+    return [f"U+{ord(ch):04X} {ch}" for ch in value if ch in _REJECTED]
 
 
 def _button_labels() -> list[tuple[str, str, str]]:
     out = [
         (f"LABELS.{key}", lang, value)
         for key, langs in LABELS.items()
+        if key not in _NOT_A_BUTTON
         for lang, value in langs.items()
     ]
     out += [
@@ -51,20 +61,28 @@ def _button_labels() -> list[tuple[str, str, str]]:
     return out
 
 
-@pytest.mark.parametrize("key,lang,value", [
-    pytest.param(k, lang, v, id=f"{k}-{lang}") for k, lang, v in _button_labels()
-])
-def test_button_labels_have_no_emoji(key, lang, value):
-    assert not _emoji(value), f"{key}[{lang}] = {value!r}"
+_CASES = [pytest.param(k, lang, v, id=f"{k}-{lang}") for k, lang, v in _button_labels()]
 
 
-def test_the_check_actually_catches_emoji():
+@pytest.mark.parametrize("key,lang,value", _CASES)
+def test_button_label_has_emoji(key, lang, value):
+    assert _emoji(value), f"{key}[{lang}] = {value!r} — кнопка без иконки"
+
+
+@pytest.mark.parametrize("key,lang,value", _CASES)
+def test_button_label_has_no_rejected_glyph(key, lang, value):
+    assert not _rejected(value), f"{key}[{lang}] = {value!r}: {_rejected(value)}"
+
+
+def test_the_checks_actually_work():
     """Страховка от «тест зелёный, потому что ничего не проверяет»."""
     assert _emoji("📋 Мои подключения")
     assert _emoji("✏️ Переименовать")
     assert _emoji("⭐ Моя подписка")
     assert not _emoji("☰ Мои подключения")
-    assert not _emoji("★ Моя подписка")
+    assert not _emoji("« Назад")
+    assert _rejected("★ Моя подписка")
+    assert not _rejected("⭐ Моя подписка")
 
 
 def test_every_button_label_exists_in_both_languages():
@@ -76,7 +94,7 @@ def test_every_button_label_exists_in_both_languages():
             assert set(langs) == set(LANGS), key
 
 
-def test_menu_screens_have_no_emoji_in_buttons():
+def test_menu_screens_use_emoji_in_buttons():
     """Экраны меню зашивают подписи прямо в вызовы `_btn("ru", "en", …)` — правило для них то же."""
     tree = ast.parse(Path(menu.__file__).read_text(encoding="utf-8"))
     labels = [
@@ -90,4 +108,5 @@ def test_menu_screens_have_no_emoji_in_buttons():
     ]
     assert len(labels) >= 20
     for text in labels:
-        assert not _emoji(text), text
+        assert _emoji(text), f"{text!r} — кнопка меню без иконки"
+        assert not _rejected(text), f"{text!r}: {_rejected(text)}"

@@ -123,7 +123,7 @@ def _card_text(job: Job, info: dict, lang: str) -> str:
 def _card_markup(job: Job, info: dict, lang: str) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for level in info.get("privacy_level_options") or []:
-        mark = "◉ " if job.tt_privacy == level else "○ "
+        mark = "🔘 " if job.tt_privacy == level else "⚪ "
         rows.append([InlineKeyboardButton(
             text=mark + t(_PRIVACY_LABELS.get(level, "ttc_prv_private"), lang),
             callback_data=f"ttc_prv:{job.id}:{level}",
@@ -132,19 +132,19 @@ def _card_markup(job: Job, info: dict, lang: str) -> InlineKeyboardMarkup:
         blocked = bool(info.get(blocked_key))
         enabled = not getattr(job, field)
         if blocked:
-            mark = "⊘"
+            mark = "🚫"
         else:
-            mark = "▣" if enabled else "□"
+            mark = "☑️" if enabled else "⬜️"
         rows.append([InlineKeyboardButton(
             text=f"{mark} {t(label_key, lang)}",
             callback_data=f"ttc_tog:{job.id}:{field}",
         )])
     rows.append([InlineKeyboardButton(
-        text=("▣ " if job.tt_brand_organic else "□ ") + t("ttc_brand_organic", lang),
+        text=("☑️ " if job.tt_brand_organic else "⬜️ ") + t("ttc_brand_organic", lang),
         callback_data=f"ttc_tog:{job.id}:tt_brand_organic",
     )])
     rows.append([InlineKeyboardButton(
-        text=("▣ " if job.tt_brand_content else "□ ") + t("ttc_brand_content", lang),
+        text=("☑️ " if job.tt_brand_content else "⬜️ ") + t("ttc_brand_content", lang),
         callback_data=f"ttc_tog:{job.id}:tt_brand_content",
     )])
     rows.append([InlineKeyboardButton(

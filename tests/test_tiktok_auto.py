@@ -14,11 +14,11 @@ from bot.services.tiktok_policy import POST_FIELDS
 
 CONSENT = datetime(2026, 8, 18, 12, 0, tzinfo=timezone.utc)
 
-MARK_CHOSEN = "◉ "
-MARK_FREE = "○ "
-MARK_ON = "▣"
-MARK_OFF = "□"
-MARK_BLOCKED = "⊘"
+MARK_CHOSEN = "🔘 "
+MARK_FREE = "⚪ "
+MARK_ON = "☑️"
+MARK_OFF = "⬜️"
+MARK_BLOCKED = "🚫"
 
 INFO = {
     "creator_nickname": "tester",
@@ -139,7 +139,7 @@ def test_privacy_must_still_be_offered_by_the_account():
 
 
 def test_creator_disabled_interaction_is_greyed(monkeypatch):
-    """Дуэты запрещены в настройках аккаунта — метка ⊘ и включить нельзя."""
+    """Дуэты запрещены в настройках аккаунта — метка 🚫 и включить нельзя."""
     _flags(monkeypatch, direct=True)
     by_field = {
         b.callback_data.split(":")[2]: b.text
