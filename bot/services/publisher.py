@@ -64,6 +64,7 @@ class _Task:
     tt_brand_organic: bool = False
     tt_brand_content: bool = False
     publish_attempts: int = 0
+    fell_back_to_draft: bool = False
 
     @property
     def tt_direct(self) -> bool:
@@ -371,7 +372,15 @@ async def _publish(task: _Task, path: str) -> str:
         access = await tiktok_tokens.access_token(task.account_id)
         if not task.tt_direct:
             return await tiktok_api.upload_to_inbox(access, path)
-        return await _tt_direct(task, path, access)
+        try:
+            return await _tt_direct(task, path, access)
+        except tiktok_api.TikTokUnauditedError as exc:
+            logger.warning(
+                "job=%d: аудит TikTok не пройден (%s) — заливаю в черновики",
+                task.job_id, str(exc)[:150],
+            )
+            task.fell_back_to_draft = True
+            return await tiktok_api.upload_to_inbox(access, path)
     raise ValueError(f"Неизвестная платформа: {task.platform}")
 
 
@@ -408,6 +417,8 @@ async def _prepare_path(bot: Bot, task: _Task) -> tuple[str, list[str]]:
 def _success_msg(task: _Task, remote_id: str, lang: str) -> str:
     if task.platform == "youtube":
         return t("pub_yt_ok", lang, id=remote_id, title=task.title, privacy=task.privacy)
+    if task.fell_back_to_draft:
+        return t("pub_tt_unaudited", lang, title=task.title)
     key = "pub_tt_live" if task.tt_direct else "pub_tt_ok"
     return t(key, lang, title=task.title)
 

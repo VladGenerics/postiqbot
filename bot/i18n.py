@@ -735,6 +735,22 @@ T: dict[str, dict[str, str]] = {
             "It shows up on your profile in a minute — TikTok is still processing it."
         ),
     },
+    "pub_tt_unaudited": {
+        "ru": (
+            "⚠️ TikTok пока не даёт публиковать в ленту: приложение бота ещё не "
+            "прошло аудит TikTok, и разрешены только приватные публикации.\n"
+            "Чтобы видео не потерялось, оно залито в черновики: "
+            "<i>{title}</i>\nОткрой приложение TikTok → Профиль → Черновики → "
+            "опубликуй. Как только аудит пройдёт, публикация снова пойдёт сама."
+        ),
+        "en": (
+            "⚠️ TikTok won't post to your feed yet: the bot's app hasn't passed the "
+            "TikTok audit, so only private posts are allowed.\n"
+            "So the video isn't lost, it went to your drafts: <i>{title}</i>\n"
+            "Open TikTok → Profile → Drafts → publish it. Once the audit is "
+            "approved, posting resumes on its own."
+        ),
+    },
     "pub_fail": {
         "ru": "❌ Не удалось опубликовать «{title}»: {error}",
         "en": "❌ Couldn't publish «{title}»: {error}",

@@ -35,12 +35,18 @@ class TikTokScopeError(RuntimeError):
     """Токен выдан без нужного scope — пользователю надо переподключить аккаунт."""
 
 
+class TikTokUnauditedError(RuntimeError):
+    """Приложение не прошло аудит TikTok: Direct Post разрешён только в приватные аккаунты (фактически SELF_ONLY)."""
+
+
 def _raise_for_error(payload: dict, ctx: str) -> None:
     """Разобрать поле error ответа TikTok."""
     err = (payload.get("error") or {}) if isinstance(payload, dict) else {}
     code = err.get("code") or ""
     if code and code != "ok":
         msg = f"TikTok {ctx}: {code} {err.get('message', '')}".strip()
+        if code == "unaudited_client_can_only_post_to_private_accounts":
+            raise TikTokUnauditedError(msg)
         if "scope" in code or "scope" in str(err.get("message", "")).lower():
             raise TikTokScopeError(msg)
         raise ValueError(msg)
