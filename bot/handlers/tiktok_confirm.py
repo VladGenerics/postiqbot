@@ -16,6 +16,7 @@ from aiogram.types import (
     FSInputFile,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    LinkPreviewOptions,
     Message,
 )
 from sqlalchemy import select
@@ -38,6 +39,8 @@ from bot.services.scheduling import compute_scheduled_at
 logger = logging.getLogger("postiqbot.tiktok_confirm")
 
 router = Router(name="tiktok_confirm")
+
+_NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 
 _PRIVACY_LABELS = {
     "PUBLIC_TO_EVERYONE": "ttc_prv_public",
@@ -98,12 +101,14 @@ async def _creator_info(job: Job) -> dict:
 
 
 def _card_text(job: Job, info: dict, lang: str) -> str:
-    nickname = info.get("creator_nickname") or "TikTok"
+    nickname = html.escape(info.get("creator_nickname") or "TikTok")
+    url = tiktok_api.profile_url(info)
+    account = f'<a href="{url}">{nickname}</a>' if url else nickname
     lines = [
         t("ttc_header", lang),
         "",
         f"🎬 <b>{html.escape(job.title or 'video')}</b>",
-        t("ttc_account", lang, nickname=html.escape(nickname)),
+        t("ttc_account", lang, nickname=account),
     ]
     if job.tt_privacy:
         lines.append(t("ttc_privacy_is", lang, value=t(_PRIVACY_LABELS.get(
@@ -118,7 +123,7 @@ def _card_text(job: Job, info: dict, lang: str) -> str:
 def _card_markup(job: Job, info: dict, lang: str) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for level in info.get("privacy_level_options") or []:
-        mark = "• " if job.tt_privacy == level else ""
+        mark = "◉ " if job.tt_privacy == level else "○ "
         rows.append([InlineKeyboardButton(
             text=mark + t(_PRIVACY_LABELS.get(level, "ttc_prv_private"), lang),
             callback_data=f"ttc_prv:{job.id}:{level}",
@@ -127,19 +132,19 @@ def _card_markup(job: Job, info: dict, lang: str) -> InlineKeyboardMarkup:
         blocked = bool(info.get(blocked_key))
         enabled = not getattr(job, field)
         if blocked:
-            mark = "🚫"
+            mark = "⊘"
         else:
-            mark = "☑️" if enabled else "⬜️"
+            mark = "▣" if enabled else "□"
         rows.append([InlineKeyboardButton(
             text=f"{mark} {t(label_key, lang)}",
             callback_data=f"ttc_tog:{job.id}:{field}",
         )])
     rows.append([InlineKeyboardButton(
-        text=("☑️ " if job.tt_brand_organic else "⬜️ ") + t("ttc_brand_organic", lang),
+        text=("▣ " if job.tt_brand_organic else "□ ") + t("ttc_brand_organic", lang),
         callback_data=f"ttc_tog:{job.id}:tt_brand_organic",
     )])
     rows.append([InlineKeyboardButton(
-        text=("☑️ " if job.tt_brand_content else "⬜️ ") + t("ttc_brand_content", lang),
+        text=("▣ " if job.tt_brand_content else "□ ") + t("ttc_brand_content", lang),
         callback_data=f"ttc_tog:{job.id}:tt_brand_content",
     )])
     rows.append([InlineKeyboardButton(
@@ -225,7 +230,9 @@ async def send_confirm_card(bot: Bot, job_id: int) -> None:
                 user_id, FSInputFile(thumb), caption=text, reply_markup=markup
             )
         else:
-            msg = await bot.send_message(user_id, text, reply_markup=markup)
+            msg = await bot.send_message(
+                user_id, text, reply_markup=markup, link_preview_options=_NO_PREVIEW
+            )
     finally:
         _cleanup(thumb)
 
@@ -251,7 +258,9 @@ async def _redraw(
         await callback.message.edit_caption(caption=text, reply_markup=markup)
     except Exception:  # noqa: BLE001 — сообщение без фото
         try:
-            await callback.message.edit_text(text, reply_markup=markup)
+            await callback.message.edit_text(
+                text, reply_markup=markup, link_preview_options=_NO_PREVIEW
+            )
         except Exception:  # noqa: BLE001 — текст не изменился, обновим только кнопки
             try:
                 await callback.message.edit_reply_markup(reply_markup=markup)

@@ -14,8 +14,15 @@ from bot.services.tiktok_policy import POST_FIELDS
 
 CONSENT = datetime(2026, 8, 18, 12, 0, tzinfo=timezone.utc)
 
+MARK_CHOSEN = "◉ "
+MARK_FREE = "○ "
+MARK_ON = "▣"
+MARK_OFF = "□"
+MARK_BLOCKED = "⊘"
+
 INFO = {
     "creator_nickname": "tester",
+    "creator_username": "tester_1",
     "privacy_level_options": ["PUBLIC_TO_EVERYONE", "SELF_ONLY"],
     "duet_disabled": True,
     "max_video_post_duration_sec": 600,
@@ -86,7 +93,7 @@ def test_privacy_has_no_preselected_value(monkeypatch):
     _flags(monkeypatch, direct=True)
     conn = _conn()
     marks = [b.text for b in _buttons(conn) if b.callback_data.startswith("ttsp:")]
-    assert marks and not any(m.startswith("• ") for m in marks)
+    assert marks and all(m.startswith(MARK_FREE) for m in marks)
     assert "выбери" in ts._screen_text(conn, INFO, "ru")
 
 
@@ -108,7 +115,7 @@ def test_chosen_privacy_is_marked(monkeypatch):
         b.text for b in _buttons(conn)
         if b.callback_data == f"ttsp:{conn.id}:SELF_ONLY"
     ]
-    assert chosen[0].startswith("• ")
+    assert chosen[0].startswith(MARK_CHOSEN)
 
 
 def test_disappeared_privacy_level_asks_to_choose_again(monkeypatch):
@@ -132,14 +139,14 @@ def test_privacy_must_still_be_offered_by_the_account():
 
 
 def test_creator_disabled_interaction_is_greyed(monkeypatch):
-    """Дуэты запрещены в настройках аккаунта — показываем 🚫 и не даём включить."""
+    """Дуэты запрещены в настройках аккаунта — метка ⊘ и включить нельзя."""
     _flags(monkeypatch, direct=True)
     by_field = {
         b.callback_data.split(":")[2]: b.text
         for b in _buttons(_conn()) if b.callback_data.startswith("ttst:")
     }
-    assert by_field["tt_disable_duet"].startswith("🚫")
-    assert by_field["tt_disable_comment"].startswith("⬜️")
+    assert by_field["tt_disable_duet"].startswith(MARK_BLOCKED)
+    assert by_field["tt_disable_comment"].startswith(MARK_OFF)
 
 
 def test_interactions_and_disclosure_are_off_by_default(monkeypatch):
@@ -148,6 +155,11 @@ def test_interactions_and_disclosure_are_off_by_default(monkeypatch):
     conn = _conn()
     assert all(getattr(conn, f) for f in ("tt_disable_comment", "tt_disable_stitch"))
     assert not conn.tt_brand_organic and not conn.tt_brand_content
+    marks = [b.text for b in _buttons(conn) if b.callback_data.startswith("ttst:")]
+    assert all(m.startswith((MARK_OFF, MARK_BLOCKED)) for m in marks)
+    on = _buttons(_conn(tt_disable_comment=False))
+    comment = next(b.text for b in on if b.callback_data.endswith("tt_disable_comment"))
+    assert comment.startswith(MARK_ON)
 
 
 def test_consent_text_switches_after_enabling(monkeypatch):

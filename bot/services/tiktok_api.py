@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from urllib.parse import quote
 
 import httpx
 
@@ -20,6 +21,14 @@ PRIVACY_LEVELS = (
     "MUTUAL_FOLLOW_FRIENDS",
     "SELF_ONLY",
 )
+
+
+def profile_url(info: dict) -> str | None:
+    """Ссылка на страницу аккаунта-получателя по данным creator_info."""
+    username = str(info.get("creator_username") or "").strip().lstrip("@").strip()
+    if not username:
+        return None
+    return f"https://www.tiktok.com/@{quote(username, safe='._-')}"
 
 
 class TikTokScopeError(RuntimeError):

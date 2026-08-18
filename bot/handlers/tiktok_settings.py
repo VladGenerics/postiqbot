@@ -6,7 +6,12 @@ import logging
 from datetime import datetime, timezone
 
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    LinkPreviewOptions,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
@@ -20,6 +25,8 @@ from bot.services.tiktok_policy import POST_FIELDS, is_auto_post, is_direct_post
 logger = logging.getLogger("postiqbot.tiktok_settings")
 
 router = Router(name="tiktok_settings")
+
+_NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 
 _PRIVACY_LABELS = {
     "PUBLIC_TO_EVERYONE": "ttc_prv_public",
@@ -89,11 +96,13 @@ def _privacy_ok(conn: Connection, info: dict) -> bool:
 
 
 def _screen_text(conn: Connection, info: dict, lang: str) -> str:
-    nickname = info.get("creator_nickname") or "TikTok"
+    nickname = html.escape(info.get("creator_nickname") or "TikTok")
+    url = tiktok_api.profile_url(info)
+    account = f'<a href="{url}">{nickname}</a>' if url else nickname
     lines = [
         t("tts_header", lang),
         "",
-        t("ttc_account", lang, nickname=html.escape(nickname)),
+        t("ttc_account", lang, nickname=account),
         t("tts_mode_auto", lang) if auto_enabled(conn) else t("tts_mode_card", lang),
     ]
     if not conn.tt_privacy:
@@ -114,16 +123,16 @@ def _screen_text(conn: Connection, info: dict, lang: str) -> str:
 def _screen_markup(conn: Connection, info: dict, lang: str) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for level in info.get("privacy_level_options") or []:
-        mark = "• " if conn.tt_privacy == level else ""
+        mark = "◉ " if conn.tt_privacy == level else "○ "
         rows.append([InlineKeyboardButton(
             text=mark + t(_PRIVACY_LABELS.get(level, "ttc_prv_private"), lang),
             callback_data=f"ttsp:{conn.id}:{level}",
         )])
     for field, label_key, blocked_key in _TOGGLES:
         if info.get(blocked_key):
-            mark = "🚫"
+            mark = "⊘"
         else:
-            mark = "☑️" if not getattr(conn, field) else "⬜️"
+            mark = "▣" if not getattr(conn, field) else "□"
         rows.append([InlineKeyboardButton(
             text=f"{mark} {t(label_key, lang)}",
             callback_data=f"ttst:{conn.id}:{field}",
@@ -133,7 +142,7 @@ def _screen_markup(conn: Connection, info: dict, lang: str) -> InlineKeyboardMar
         ("tt_brand_content", "ttc_brand_content"),
     ):
         rows.append([InlineKeyboardButton(
-            text=("☑️ " if getattr(conn, field) else "⬜️ ") + t(label_key, lang),
+            text=("▣ " if getattr(conn, field) else "□ ") + t(label_key, lang),
             callback_data=f"ttst:{conn.id}:{field}",
         )])
     if auto_enabled(conn):
@@ -164,7 +173,9 @@ async def _render(
     markup = _screen_markup(conn, info, lang)
     message = callback.message
     try:
-        await message.edit_text(text, reply_markup=markup)
+        await message.edit_text(
+            text, reply_markup=markup, link_preview_options=_NO_PREVIEW
+        )
         return
     except Exception:  # noqa: BLE001
         pass
@@ -207,6 +218,7 @@ async def open_settings(callback: CallbackQuery) -> None:
         await callback.message.answer(
             _screen_text(conn, info, lang),
             reply_markup=_screen_markup(conn, info, lang),
+            link_preview_options=_NO_PREVIEW,
         )
     else:
         await _render(callback, conn, lang)

@@ -26,7 +26,7 @@ def _btn(ru: str, en: str, lang: str, data: str) -> InlineKeyboardButton:
 
 
 def _back(screen: str, lang: str) -> list[InlineKeyboardButton]:
-    return [_btn("⬅️ Назад", "⬅️ Back", lang, f"nav:{screen}")]
+    return [_btn("« Назад", "« Back", lang, f"nav:{screen}")]
 
 
 async def _status_line(user_id: int, lang: str) -> str:
@@ -92,18 +92,18 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
 
     if screen == "root":
         rows = [
-            [_btn("➕ Подключения", "➕ Connections", lang, "nav:connections"),
-             _btn("👤 Профиль", "👤 Profile", lang, "nav:profile")],
-            [_btn("💎 Тарифы", "💎 Plans", lang, "nav:tariffs"),
-             _btn("🛠 Поддержка", "🛠 Support", lang, "nav:support")],
-            [_btn("⚙️ Ещё", "⚙️ More", lang, "nav:more")],
+            [_btn("⊕ Подключения", "⊕ Connections", lang, "nav:connections"),
+             _btn("◉ Профиль", "◉ Profile", lang, "nav:profile")],
+            [_btn("◈ Тарифы", "◈ Plans", lang, "nav:tariffs"),
+             _btn("✎ Поддержка", "✎ Support", lang, "nav:support")],
+            [_btn("⋯ Ещё", "⋯ More", lang, "nav:more")],
         ]
         return "start", t("menu_root", lang), InlineKeyboardMarkup(inline_keyboard=rows)
 
     if screen == "connections":
         rows = [
-            [_btn("📋 Мои подключения", "📋 My connections", lang, "nav:mylist")],
-            [_btn("➕ Новое подключение", "➕ New connection", lang, "nav:newconn")],
+            [_btn("☰ Мои подключения", "☰ My connections", lang, "nav:mylist")],
+            [_btn("⊕ Новое подключение", "⊕ New connection", lang, "nav:newconn")],
             _back("root", lang),
         ]
         return "connections", t("menu_connections", lang), InlineKeyboardMarkup(inline_keyboard=rows)
@@ -114,7 +114,7 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
                                   callback_data="connect_youtube")],
             [InlineKeyboardButton(text=t("btn_signin_tiktok", lang),
                                   callback_data="connect_tiktok")],
-            [_btn("➕ Добавить источник", "➕ Add source", lang, "nav:addsrc")],
+            [_btn("⊕ Добавить источник", "⊕ Add source", lang, "nav:addsrc")],
             _back("connections", lang),
         ]
         return "connect", t("menu_new_conn", lang), InlineKeyboardMarkup(inline_keyboard=rows)
@@ -131,7 +131,7 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
 
     if screen == "profile":
         rows = [
-            [_btn("👥 Рефералка", "👥 Referrals", lang, "nav:referral")],
+            [_btn("✦ Рефералка", "✦ Referrals", lang, "nav:referral")],
             _back("root", lang),
         ]
         return "profile", await _profile_caption(user_id, lang), InlineKeyboardMarkup(inline_keyboard=rows)
@@ -142,8 +142,8 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
 
     if screen == "tariffs":
         rows = [
-            [_btn("💎 Купить тариф", "💎 Buy a plan", lang, "nav:buy")],
-            [_btn("⭐ Моя подписка", "⭐ My subscription", lang, "nav:mysub")],
+            [_btn("◈ Купить тариф", "◈ Buy a plan", lang, "nav:buy")],
+            [_btn("★ Моя подписка", "★ My subscription", lang, "nav:mysub")],
             _back("root", lang),
         ]
         return "tariffs", t("menu_tariffs", lang), InlineKeyboardMarkup(inline_keyboard=rows)
@@ -183,16 +183,16 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
     if screen == "mysub":
         status = await _status_line(user_id, lang)
         rows = [
-            [_btn("💎 Купить тариф", "💎 Buy a plan", lang, "nav:buy")],
+            [_btn("◈ Купить тариф", "◈ Buy a plan", lang, "nav:buy")],
             _back("tariffs", lang),
         ]
         return "tariffs", t("my_sub_body", lang, status=status), InlineKeyboardMarkup(inline_keyboard=rows)
 
     if screen == "more":
         rows = [
-            [_btn("📖 Как пользоваться", "📖 How to use", lang, "nav:guide")],
-            [_btn("🌐 Сменить язык", "🌐 Change language", lang, "nav:lang")],
-            [_btn("📄 Документы", "📄 Documents", lang, "nav:documents")],
+            [_btn("※ Как пользоваться", "※ How to use", lang, "nav:guide")],
+            [_btn("⇄ Сменить язык", "⇄ Change language", lang, "nav:lang")],
+            [_btn("§ Документы", "§ Documents", lang, "nav:documents")],
             _back("root", lang),
         ]
         return "more", t("menu_more", lang), InlineKeyboardMarkup(inline_keyboard=rows)
