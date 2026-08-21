@@ -76,16 +76,14 @@ class Settings(BaseSettings):
     admin_ids: str = ""
 
     private_mode: bool = False
-    private_message: str = (
-        "🚀 <b>PosttiqBot запускается 30 июня!</b>\n\n"
-        "Подпишись на канал, чтобы на старте забрать бесплатный доступ на 7 дней."
-    )
+    private_message: str = ""
 
     trial_days: int = 7
     trial_accounts: int = 1
     trial_videos: int = 4
 
-    referral_bonus_days: int = 7
+    referral_bonus_days: int = 14
+    referral_bonus_plan: str = "starter"
 
     gate_enabled: bool = True
     gate_channel: str = "@postiq_channel"
@@ -127,6 +125,12 @@ class Settings(BaseSettings):
     def plan_label(self, plan: str) -> str:
         p = self.plans[plan]
         return f"{p['emoji']} {p['name']}"
+
+    @property
+    def referral_bonus_label(self) -> str:
+        """Подпись бонусного тарифа рефералки («🟢 Starter») для текстов бота."""
+        plan = self.referral_bonus_plan
+        return self.plan_label(plan) if plan in self.plans else plan
 
     @property
     def admin_id_set(self) -> set[int]:

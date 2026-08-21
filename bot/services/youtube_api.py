@@ -12,7 +12,7 @@ def get_my_channel(creds: Credentials) -> tuple[str, str]:
     resp = youtube.channels().list(part="snippet", mine=True).execute()
     items = resp.get("items", [])
     if not items:
-        raise ValueError("У аккаунта нет YouTube-канала")
+        raise ValueError("this Google account has no YouTube channel")
     channel = items[0]
     return channel["id"], channel["snippet"]["title"]
 

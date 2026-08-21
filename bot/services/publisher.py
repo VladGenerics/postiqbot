@@ -326,8 +326,8 @@ class _PrivacyUnavailable(RuntimeError):
 
     def __init__(self, privacy: str, options: list[str]) -> None:
         super().__init__(
-            f"privacy_level_option_mismatch: {privacy or '—'} недоступен "
-            f"(разрешено: {', '.join(options) or '—'})"
+            f"privacy_level_option_mismatch: {privacy or '—'} unavailable "
+            f"(allowed: {', '.join(options) or '—'})"
         )
         self.privacy = privacy
 
@@ -381,7 +381,7 @@ async def _publish(task: _Task, path: str) -> str:
             )
             task.fell_back_to_draft = True
             return await tiktok_api.upload_to_inbox(access, path)
-    raise ValueError(f"Неизвестная платформа: {task.platform}")
+    raise ValueError(f"unknown platform: {task.platform}")
 
 
 async def _download_overlay(bot: Bot, file_id: str) -> str:
@@ -514,7 +514,7 @@ async def sweep_awaiting(bot: Bot) -> int:
         ).all()
         for job, user_id in rows:
             job.status = JOB_FAILED
-            job.error = f"Не подтверждено за {AWAITING_TTL_HOURS} ч"
+            job.error = f"not confirmed within {AWAITING_TTL_HOURS}h"
             expired.append((job.card_message_id, user_id, job.title or "video", job.local_path))
 
         stuck = list(

@@ -24,7 +24,7 @@ from bot.handlers.start import ensure_user
 from bot.i18n import t, user_lang
 from bot.services import platega
 from bot.ui import cleanup_ask, remember_prompt, send_with_icon
-from bot.services.subscription import grant_subscription, status_text
+from bot.services.subscription import grant_referral_bonus, grant_subscription, status_text
 
 logger = logging.getLogger("postiqbot.extras")
 
@@ -48,7 +48,8 @@ async def open_subscription(message: Message, user_id: int) -> None:
     lang = await user_lang(user_id)
     rows = [
         [InlineKeyboardButton(
-            text=f"{s.plan_label(pl)} — {s.plans[pl]['month']['rub']} ₽/мес",
+            text=f"{s.plan_label(pl)} — {s.plans[pl]['month']['rub']} "
+                 f"{t('per_month_short', lang)}",
             callback_data=f"nav:plan_{pl}",
         )]
         for pl in s.plans
@@ -210,15 +211,15 @@ async def on_paid(message: Message, bot: Bot) -> None:
     else:
         active = t("paid_until", lang, date=f"{until:%d.%m.%Y}")
     await message.answer(t("paid_ok", lang, active=active))
-    await _reward_referrer(bot, message.from_user.id, plan=plan, days=days)
+    await _reward_referrer(bot, message.from_user.id)
 
 
-async def reward_referrer_public(bot: Bot, payer_id: int, plan: str | None, days: int) -> None:
+async def reward_referrer_public(bot: Bot, payer_id: int) -> None:
     """Публичная обёртка для вызова из payment_callback."""
-    await _reward_referrer(bot, payer_id, plan, days)
+    await _reward_referrer(bot, payer_id)
 
 
-async def _reward_referrer(bot: Bot, payer_id: int, plan: str | None, days: int) -> None:
+async def _reward_referrer(bot: Bot, payer_id: int) -> None:
     """Начислить бонус пригласившему при ПЕРВОЙ оплате приглашённого."""
     async with get_session() as session:
         payer = await session.get(User, payer_id)
@@ -226,14 +227,15 @@ async def _reward_referrer(bot: Bot, payer_id: int, plan: str | None, days: int)
             return
         payer.referral_rewarded = True
         referrer_id = payer.referred_by
-    until = await grant_subscription(referrer_id, days, plan=plan)
-    lang = await user_lang(referrer_id)
     settings = get_settings()
-    plan_name = settings.plans[plan]["name"] if plan and plan in settings.plans else None
+    days, plan = settings.referral_bonus_days, settings.referral_bonus_plan
+    until = await grant_referral_bonus(referrer_id, days, plan)
+    lang = await user_lang(referrer_id)
+    plan_name = settings.referral_bonus_label
     try:
         await bot.send_message(
             referrer_id,
-            t("ref_reward", lang, plan=plan_name or "trial", days=days, date=f"{until:%d.%m.%Y}"),
+            t("ref_reward", lang, plan=plan_name, days=days, date=f"{until:%d.%m.%Y}"),
         )
     except Exception:  # noqa: BLE001
         pass
@@ -256,7 +258,8 @@ async def open_referral(message: Message, bot: Bot, user_id: int) -> None:
         )
     await send_with_icon(
         message, "referral",
-        t("referral", lang, bonus=settings.referral_bonus_days, link=link,
+        t("referral", lang, bonus=settings.referral_bonus_days,
+          plan=settings.referral_bonus_label, link=link,
           invited=invited or 0, paid=paid or 0), lang=lang,
     )
 
@@ -325,7 +328,8 @@ async def admin_reply(message: Message, bot: Bot) -> None:
         return
     user_id = int(m.group(1))
     try:
-        await bot.send_message(user_id, f"💬 <b>Ответ поддержки:</b>\n\n{message.text}")
+        lang = await user_lang(user_id)
+        await bot.send_message(user_id, t("sup_reply", lang, text=message.text))
         await message.reply("✅ Доставлено пользователю.")
     except Exception:  # noqa: BLE001
         await message.reply("⚠️ Не удалось доставить (юзер не писал боту / заблокировал).")

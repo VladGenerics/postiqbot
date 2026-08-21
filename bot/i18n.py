@@ -97,6 +97,7 @@ T: dict[str, dict[str, str]] = {
         ),
     },
     "btn_buy_month": {"ru": "📅 Месяц — {rub} ₽", "en": "📅 Month — {rub} ₽"},
+    "per_month_short": {"ru": "₽/мес", "en": "₽/mo"},
     "btn_buy_month_star": {"ru": "📅 Месяц — {stars} ⭐", "en": "📅 Month — {stars} ⭐"},
     "btn_buy_forever": {"ru": "♾️ Навсегда — {rub} ₽", "en": "♾️ Forever — {rub} ₽"},
     "btn_buy_forever_star": {"ru": "♾️ Навсегда — {stars} ⭐", "en": "♾️ Forever — {stars} ⭐"},
@@ -215,6 +216,14 @@ T: dict[str, dict[str, str]] = {
     },
     "btn_privacy": {"ru": "🔐 Политика конфиденциальности", "en": "🔐 Privacy Policy"},
     "btn_terms": {"ru": "📄 Пользовательское соглашение", "en": "📄 Terms of Service"},
+    "policy_line": {
+        "ru": "🔐 Политика конфиденциальности:\n{url}",
+        "en": "🔐 Privacy Policy:\n{url}",
+    },
+    "terms_line": {
+        "ru": "📄 Пользовательское соглашение:\n{url}",
+        "en": "📄 Terms of Service:\n{url}",
+    },
     "support_line": {
         "ru": "\n\n💬 Поддержка: кнопка «Поддержка» в меню{contact}",
         "en": "\n\n💬 Support: the «Support» button in the menu{contact}",
@@ -342,15 +351,16 @@ T: dict[str, dict[str, str]] = {
     "referral": {
         "ru": (
             "🎁 <b>Реферальная программа</b>\n\n"
-            "Приглашай друзей! Когда приглашённый оформит подписку — тебе "
-            "начислят <b>такой же тариф на тот же срок</b>.\n\n"
+            "Приглашай друзей! Когда приглашённый оформит первую подписку, тебе "
+            "начислим бесплатный доступ на <b>{bonus} дн.</b> по тарифу "
+            "<b>{plan}</b>.\n\n"
             "Твоя ссылка:\n{link}\n\n"
             "👥 Приглашено: <b>{invited}</b>\n💳 Оплатили (бонус начислен): <b>{paid}</b>"
         ),
         "en": (
             "🎁 <b>Referral program</b>\n\n"
-            "Invite friends! When an invited user buys a subscription, you get "
-            "<b>the same plan for the same period</b>.\n\n"
+            "Invite friends! When an invited user buys their first subscription, you "
+            "get <b>{bonus} days</b> of free access on the <b>{plan}</b> plan.\n\n"
             "Your link:\n{link}\n\n"
             "👥 Invited: <b>{invited}</b>\n💳 Paid (bonus granted): <b>{paid}</b>"
         ),
@@ -599,6 +609,20 @@ T: dict[str, dict[str, str]] = {
         "ru": "❌ Ты ещё не подписан на канал. Подпишись и нажми «Проверить» снова.",
         "en": "❌ You haven't subscribed yet. Subscribe and tap «Check» again.",
     },
+    "gate_toast": {
+        "ru": "Сначала подпишись на канал 👇",
+        "en": "Subscribe to the channel first 👇",
+    },
+    "private_notice": {
+        "ru": (
+            "🚀 <b>PosttiqBot скоро откроется!</b>\n\n"
+            "Подпишись на канал, чтобы на старте забрать бесплатный доступ."
+        ),
+        "en": (
+            "🚀 <b>PosttiqBot is opening soon!</b>\n\n"
+            "Subscribe to our channel to grab free access at launch."
+        ),
+    },
     "bf_choose": {
         "ru": (
             "📥 <b>Залить архив источника</b>\n"
@@ -697,11 +721,13 @@ T: dict[str, dict[str, str]] = {
     },
     "ref_reward": {
         "ru": (
-            "🎁 Твой приглашённый оформил подписку <b>{plan}</b> — тебе тоже <b>+{days} дней</b> того же тарифа!\n"
+            "🎁 Твой приглашённый оформил подписку — тебе начислен бесплатный "
+            "доступ на <b>{days} дн.</b> по тарифу <b>{plan}</b>!\n"
             "Доступ активен до <b>{date}</b>."
         ),
         "en": (
-            "🎁 Your referral bought a <b>{plan}</b> subscription — you get <b>+{days} days</b> of the same plan!\n"
+            "🎁 Your referral bought a subscription — you get <b>{days} days</b> of "
+            "free access on the <b>{plan}</b> plan!\n"
             "Access is active until <b>{date}</b>."
         ),
     },
@@ -1067,6 +1093,10 @@ T: dict[str, dict[str, str]] = {
         "ru": "⚠️ Не удалось доставить ответ пользователю (не начинал чат или заблокировал бота).",
         "en": "⚠️ Couldn't deliver the reply to the user (hasn't started the chat or blocked the bot).",
     },
+    "sup_reply": {
+        "ru": "💬 <b>Ответ поддержки:</b>\n\n{text}",
+        "en": "💬 <b>Support reply:</b>\n\n{text}",
+    },
     "support_open": {
         "ru": (
             "💬 <b>Поддержка</b>\n\n"
@@ -1091,9 +1121,28 @@ T: dict[str, dict[str, str]] = {
 }
 
 
+COMMANDS: tuple[tuple[str, dict[str, str]], ...] = (
+    ("start", {"ru": "🏠 Главное меню", "en": "🏠 Main menu"}),
+    ("profile", {"ru": "👤 Профиль", "en": "👤 Profile"}),
+    ("tariffs", {"ru": "💎 Тарифы", "en": "💎 Plans"}),
+    ("connections", {"ru": "📋 Мои подключения", "en": "📋 My connections"}),
+    ("guide", {"ru": "📖 Как пользоваться", "en": "📖 How to use"}),
+    ("referral", {"ru": "🎁 Пригласить друга", "en": "🎁 Invite a friend"}),
+    ("support", {"ru": "💬 Поддержка", "en": "💬 Support"}),
+    ("docs", {"ru": "📄 Документы", "en": "📄 Documents"}),
+    ("policy", {"ru": "🔐 Политика конфиденциальности", "en": "🔐 Privacy Policy"}),
+    ("terms", {"ru": "📄 Пользовательское соглашение", "en": "📄 Terms of Service"}),
+)
+
+
 def t(key: str, lang: str, **fmt) -> str:
     text = T.get(key, {}).get(lang) or T.get(key, {}).get(DEFAULT_LANG, key)
     return text.format(**fmt) if fmt else text
+
+
+def command_descriptions(lang: str) -> list[tuple[str, str]]:
+    """[(команда, описание)] на языке lang — для set_my_commands."""
+    return [(cmd, txt.get(lang, txt[DEFAULT_LANG])) for cmd, txt in COMMANDS]
 
 
 def label(action: str, lang: str) -> str:

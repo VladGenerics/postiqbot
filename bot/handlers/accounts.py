@@ -16,7 +16,7 @@ from bot.config import get_settings
 from bot.db.models import PublishAccount
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
-from bot.i18n import t, user_lang
+from bot.i18n import label, t, user_lang
 from bot.services import login_prompts
 from bot.services.crypto import decrypt
 from bot.services.oauth_state import encode_simple_state, encode_state
@@ -112,7 +112,9 @@ async def open_connect_menu(message: Message, telegram_id: int) -> None:
         [InlineKeyboardButton(text=t("btn_signin_youtube", lang), callback_data="connect_youtube")],
         [InlineKeyboardButton(text=t("btn_signin_tiktok", lang), callback_data="connect_tiktok")],
     ])
-    await send_with_icon(message, "connect", t("choose_platform", lang), reply_markup=kb, lang=lang)
+    await send_with_icon(
+        message, "connect", label("choose_platform", lang), reply_markup=kb, lang=lang
+    )
 
 
 @router.callback_query(F.data == "connect_youtube")

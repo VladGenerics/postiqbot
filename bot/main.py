@@ -7,7 +7,6 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import BotCommand
 from aiohttp import web
 
 from bot.config import get_settings
@@ -23,6 +22,7 @@ from bot.handlers import (
     tiktok_confirm,
     tiktok_settings,
 )
+from bot.keyboards.commands import set_global_commands
 from bot.middlewares.channel_gate import ChannelGateMiddleware
 from bot.middlewares.private_mode import PrivateModeMiddleware
 from bot.scheduler import setup_scheduler
@@ -78,18 +78,7 @@ async def main() -> None:
     scheduler = setup_scheduler(bot)
     scheduler.start()
 
-    await bot.set_my_commands([
-        BotCommand(command="start", description="🏠 Главное меню"),
-        BotCommand(command="profile", description="👤 Профиль"),
-        BotCommand(command="tariffs", description="💳 Тарифы"),
-        BotCommand(command="connections", description="📋 Мои подключения"),
-        BotCommand(command="guide", description="📖 Как пользоваться"),
-        BotCommand(command="referral", description="🎁 Пригласить друга"),
-        BotCommand(command="support", description="✍️ Поддержка"),
-        BotCommand(command="docs", description="📄 Документы"),
-        BotCommand(command="policy", description="🔐 Политика конфиденциальности"),
-        BotCommand(command="terms", description="📄 Пользовательское соглашение"),
-    ])
+    await set_global_commands(bot)
 
     support_bot: Bot | None = None
     support_task: asyncio.Task | None = None

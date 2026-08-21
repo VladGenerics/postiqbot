@@ -197,7 +197,7 @@ async def send_confirm_card(bot: Bot, job_id: int) -> None:
     try:
         info = await _creator_info(full)
     except tiktok_api.TikTokScopeError:
-        await _fail(job_id, "TikTok: нужен повторный вход (scope video.publish)")
+        await _fail(job_id, "TikTok: re-login required (scope video.publish)")
         _cleanup(job.local_path)
         await bot.send_message(
             user_id,
@@ -213,7 +213,7 @@ async def send_confirm_card(bot: Bot, job_id: int) -> None:
     max_sec = info.get("max_video_post_duration_sec") or 0
     duration = await asyncio.to_thread(video_duration, job.local_path or "")
     if max_sec and duration > max_sec:
-        await _fail(job_id, f"Видео {int(duration)}с длиннее лимита TikTok {max_sec}с")
+        await _fail(job_id, f"video is {int(duration)}s, over TikTok limit {max_sec}s")
         _cleanup(job.local_path)
         await bot.send_message(user_id, t(
             "ttc_too_long", lang, title=job.title or "video",
@@ -436,7 +436,7 @@ async def cancel(callback: CallbackQuery) -> None:
     if job is None:
         return
     path = job.local_path
-    await _fail(job.id, "Отменено пользователем")
+    await _fail(job.id, "cancelled by user")
     _cleanup(path)
     try:
         await callback.message.edit_reply_markup(reply_markup=None)

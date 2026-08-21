@@ -7,6 +7,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message, TelegramObject
 
 from bot.config import get_settings
+from bot.i18n import DEFAULT_LANG, t, user_lang
 
 _override: bool | None = None
 
@@ -37,7 +38,8 @@ class PrivateModeMiddleware(BaseMiddleware):
         if is_private():
             user = data.get("event_from_user")
             if user is None or user.id not in self.allowed:
-                text = get_settings().private_message
+                lang = await user_lang(user.id) if user else DEFAULT_LANG
+                text = get_settings().private_message or t("private_notice", lang)
                 try:
                     if isinstance(event, Message):
                         await event.answer(text)

@@ -16,7 +16,7 @@ async def access_token(account_id: int) -> str:
     async with get_session() as session:
         acc = await session.get(PublishAccount, account_id)
         if acc is None:
-            raise ValueError(f"publish_account {account_id} не найден")
+            raise ValueError(f"publish_account {account_id} not found")
         current = decrypt(acc.refresh_token_enc)
 
     tokens = await refresh_access_token(current)

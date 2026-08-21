@@ -15,6 +15,8 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
 )
 
+from bot.i18n import t
+
 _NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 
 _AUTODEL_TASKS: set[asyncio.Task] = set()
@@ -133,11 +135,13 @@ async def ask(
     lang: str = "ru",
     *,
     cancel_data: str = "ask_cancel",
-    cancel_text: str = "« Отмена",
+    cancel_text: str | None = None,
 ) -> None:
     """Спросить текст: отправить приглашение с «Отмена» и запомнить, что убрать."""
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=cancel_text, callback_data=cancel_data)]
+        [InlineKeyboardButton(
+            text=cancel_text or t("c_btn_cancel", lang), callback_data=cancel_data
+        )]
     ])
     prompt = await message.answer(text, reply_markup=kb, link_preview_options=_NO_PREVIEW)
     await state.update_data(**{_PROMPT_KEY: prompt.message_id, _ANCHOR_KEY: message.message_id})

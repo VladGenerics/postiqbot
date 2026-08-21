@@ -9,6 +9,7 @@ from aiogram.types import CallbackQuery, Message, TelegramObject
 from bot.config import get_settings
 from bot.db.models import User
 from bot.db.session import get_session
+from bot.i18n import t, user_lang
 
 
 async def _is_verified(telegram_id: int) -> bool:
@@ -47,5 +48,5 @@ class ChannelGateMiddleware(BaseMiddleware):
         if isinstance(event, Message):
             await send_gate_prompt(event.bot, user.id, event)
         elif isinstance(event, CallbackQuery):
-            await event.answer("Сначала подпишитесь на канал 👇", show_alert=True)
+            await event.answer(t("gate_toast", await user_lang(user.id)), show_alert=True)
         return None

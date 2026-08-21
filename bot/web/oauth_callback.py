@@ -46,8 +46,10 @@ _TXT = {
 }
 
 
-def _fail(request: web.Request, key: str, detail: str = "") -> web.Response:
-    lang = web_lang(request)
+def _fail(
+    request: web.Request, key: str, detail: str = "", lang: str | None = None
+) -> web.Response:
+    lang = lang or web_lang(request)
     title, text = _TXT[lang][key]
     return result_page(
         title, text, lang=lang, ok=False, platform="youtube",
@@ -99,12 +101,14 @@ async def oauth_callback(request: web.Request) -> web.Response:
     except Exception:
         return _fail(request, "expired")
 
+    lang = await user_lang(telegram_id)
+
     async with get_session() as session:
         project = await session.scalar(
             select(OAuthProject).where(OAuthProject.id == project_id)
         )
     if project is None:
-        return _fail(request, "no_project")
+        return _fail(request, "no_project", lang=lang)
 
     client_secret = decrypt(project.client_secret_enc)
 
@@ -117,11 +121,11 @@ async def oauth_callback(request: web.Request) -> web.Response:
             code,
         )
         if not creds.refresh_token:
-            raise ValueError("Google не вернул refresh_token (отзови доступ и попробуй снова)")
+            raise ValueError("Google returned no refresh_token (revoke access and retry)")
         channel_id, channel_title = await asyncio.to_thread(get_my_channel, creds)
     except Exception as exc:  # noqa: BLE001
         logger.exception("OAuth exchange failed")
-        return _fail(request, "failed", str(exc))
+        return _fail(request, "failed", str(exc), lang=lang)
 
     await _save_account(
         telegram_id, project.id, channel_id, channel_title, creds.refresh_token
@@ -129,7 +133,6 @@ async def oauth_callback(request: web.Request) -> web.Response:
 
     await login_prompts.clear(bot, telegram_id, "youtube")
     try:
-        lang = await user_lang(telegram_id)
         msg = await bot.send_message(
             telegram_id,
             t("acc_connected_youtube", lang, title=html.escape(channel_title)),
@@ -138,7 +141,6 @@ async def oauth_callback(request: web.Request) -> web.Response:
     except Exception:  # noqa: BLE001
         logger.warning("Не смог уведомить пользователя %s", telegram_id)
 
-    lang = web_lang(request)
     title, text = _TXT[lang]["ok"]
     return result_page(
         title, text.format(name=html.escape(channel_title)), lang=lang, platform="youtube"

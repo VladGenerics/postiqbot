@@ -19,6 +19,7 @@ from bot.handlers.extras import (
 )
 from bot.handlers.sources import open_add_source
 from bot.i18n import label, labels, set_user_lang, t, user_lang
+from bot.keyboards.commands import sync_user_commands
 from bot.keyboards.menus import main_reply_kb
 from bot.ui import send_with_icon
 
@@ -74,6 +75,7 @@ async def nav_more(message: Message, state: FSMContext) -> None:
 async def cb_toggle_lang(callback) -> None:
     new = "en" if (await user_lang(callback.from_user.id)) == "ru" else "ru"
     await set_user_lang(callback.from_user.id, new)
+    await sync_user_commands(callback.bot, callback.from_user.id, new)
     await send_with_icon(
         callback.message, "lang", t("lang_switched", new), reply_markup=main_reply_kb(new), lang=new
     )
@@ -130,12 +132,14 @@ async def cmd_support(message: Message, state: FSMContext) -> None:
 
 @router.message(Command("policy"))
 async def cmd_policy(message: Message) -> None:
-    await message.answer(f"🔐 Политика конфиденциальности:\n{get_settings().privacy_url}")
+    lang = await user_lang(message.from_user.id)
+    await message.answer(t("policy_line", lang, url=get_settings().privacy_url))
 
 
 @router.message(Command("terms"))
 async def cmd_terms(message: Message) -> None:
-    await message.answer(f"📄 Пользовательское соглашение:\n{get_settings().terms_url}")
+    lang = await user_lang(message.from_user.id)
+    await message.answer(t("terms_line", lang, url=get_settings().terms_url))
 
 
 @router.message(Command("docs"))

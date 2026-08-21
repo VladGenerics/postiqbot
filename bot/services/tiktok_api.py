@@ -118,9 +118,9 @@ async def direct_post(
 ) -> str:
     """Прямая публикация в TikTok (Direct Post, scope video.publish)."""
     if not privacy:
-        raise ValueError("privacy_level не выбран пользователем")
+        raise ValueError("privacy_level not chosen by the user")
     if brand_content_toggle and privacy == "SELF_ONLY":
-        raise ValueError("Branded content нельзя публиковать как SELF_ONLY")
+        raise ValueError("branded content cannot be posted as SELF_ONLY")
 
     size = os.path.getsize(file_path)
     headers = {
@@ -138,8 +138,8 @@ async def direct_post(
                 raise ValueError(f"TikTok creator_info error: {ci_payload}")
         if privacy not in options:
             raise ValueError(
-                f"privacy_level_option_mismatch: {privacy} недоступен "
-                f"(разрешено: {', '.join(options)})"
+                f"privacy_level_option_mismatch: {privacy} unavailable "
+                f"(allowed: {', '.join(options)})"
             )
 
         init_body = {

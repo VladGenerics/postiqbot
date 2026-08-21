@@ -103,6 +103,27 @@ def _is_admin(telegram_id: int) -> bool:
     return telegram_id in get_settings().admin_id_set
 
 
+async def grant_referral_bonus(
+    telegram_id: int,
+    days: int | None = None,
+    plan: str | None = None,
+) -> datetime:
+    """Реферальный бонус: days дней тарифа plan (по умолчанию — из настроек)."""
+    s = get_settings()
+    days = s.referral_bonus_days if days is None else days
+    plan = s.referral_bonus_plan if plan is None else plan
+    bonus_priority = s.plans[plan]["priority"] if plan in s.plans else 0
+    async with get_session() as session:
+        user = await session.get(User, telegram_id)
+        keep_plan = bool(
+            user
+            and is_user_active(user)
+            and user.tier_plan in s.plans
+            and s.plans[user.tier_plan]["priority"] >= bonus_priority
+        )
+    return await grant_subscription(telegram_id, days, plan=None if keep_plan else plan)
+
+
 async def can_add_account(telegram_id: int, current_count: int) -> tuple[bool, int]:
     """Можно ли подключить ещё аккаунт. Вернуть (можно, лимит)."""
     if _is_admin(telegram_id):

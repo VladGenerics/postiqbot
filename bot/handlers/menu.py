@@ -11,6 +11,7 @@ from bot.db.models import Connection, PublishAccount, User
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.i18n import label, set_user_lang, t, user_lang
+from bot.keyboards.commands import sync_user_commands
 from bot.services.subscription import status_text
 from bot.ui import show_screen
 
@@ -71,7 +72,8 @@ async def _referral_caption(user_id: int, lang: str, bot: Bot) -> str:
                 User.referred_by == user_id, User.referral_rewarded.is_(True)
             )
         )
-    return t("referral", lang, bonus=settings.referral_bonus_days, link=link,
+    return t("referral", lang, bonus=settings.referral_bonus_days,
+             plan=settings.referral_bonus_label, link=link,
              invited=invited or 0, paid=paid or 0)
 
 
@@ -151,7 +153,8 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
     if screen == "buy":
         rows = [
             [InlineKeyboardButton(
-                text=f"{settings.plan_label(pl)} — {settings.plans[pl]['month']['rub']} ₽/мес",
+                text=f"{settings.plan_label(pl)} — "
+                     f"{settings.plans[pl]['month']['rub']} {t('per_month_short', lang)}",
                 callback_data=f"nav:plan_{pl}",
             )]
             for pl in settings.plans
@@ -275,6 +278,7 @@ async def on_nav(callback: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     if screen == "lang":
         lang = "en" if lang == "ru" else "ru"
         await set_user_lang(user_id, lang)
+        await sync_user_commands(bot, user_id, lang)
         screen = "more"
     elif screen == "addsrc":
         await _enter_addsrc(message, state, user_id, lang)

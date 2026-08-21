@@ -112,7 +112,7 @@ def download(video_url: str, video_id: str, job_id: int) -> str:
             time.sleep(delay)
     matches = glob.glob(os.path.join(dest_dir, f"{stem}.*"))
     if not matches:
-        raise FileNotFoundError(f"Файл для {stem} не найден после скачивания")
+        raise FileNotFoundError(f"downloaded file for {stem} not found")
     matches.sort(key=lambda p: (not p.endswith(".mp4"), -os.path.getsize(p)))
     return matches[0]
 

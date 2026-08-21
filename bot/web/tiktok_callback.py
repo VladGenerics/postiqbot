@@ -38,8 +38,10 @@ _TXT = {
 }
 
 
-def _fail(request: web.Request, key: str, detail: str = "") -> web.Response:
-    lang = web_lang(request)
+def _fail(
+    request: web.Request, key: str, detail: str = "", lang: str | None = None
+) -> web.Response:
+    lang = lang or web_lang(request)
     title, text = _TXT[lang][key]
     return result_page(
         title, text, lang=lang, ok=False, platform="tiktok",
@@ -85,25 +87,26 @@ async def tiktok_callback(request: web.Request) -> web.Response:
     except Exception:
         return _fail(request, "expired")
 
+    lang = await user_lang(telegram_id)
+
     try:
         tokens = await exchange_code(code)
         refresh_token = tokens.get("refresh_token")
         open_id = tokens.get("open_id")
         if not refresh_token or not open_id:
-            raise ValueError("TikTok не вернул refresh_token/open_id")
+            raise ValueError("TikTok returned no refresh_token/open_id")
         try:
             _, name = await get_user_info(tokens["access_token"])
         except Exception:  # noqa: BLE001
             name = "TikTok"
     except Exception as exc:  # noqa: BLE001
         logger.exception("TikTok OAuth failed")
-        return _fail(request, "failed", str(exc))
+        return _fail(request, "failed", str(exc), lang=lang)
 
     await _save_account(telegram_id, open_id, name, refresh_token)
 
     await login_prompts.clear(bot, telegram_id, "tiktok")
     try:
-        lang = await user_lang(telegram_id)
         msg = await bot.send_message(
             telegram_id,
             t("acc_connected_tiktok", lang, title=html.escape(name)),
@@ -112,7 +115,6 @@ async def tiktok_callback(request: web.Request) -> web.Response:
     except Exception:  # noqa: BLE001
         logger.warning("Не смог уведомить пользователя %s", telegram_id)
 
-    lang = web_lang(request)
     title, text = _TXT[lang]["ok"]
     return result_page(
         title, text.format(name=html.escape(name)), lang=lang, platform="tiktok"
