@@ -9,7 +9,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from bot.config import get_settings
-from bot.services.downloader import process_pending
+from bot.services.downloader import cleanup_downloads, process_pending
 from bot.services.payments_service import reconcile_payments
 from bot.services.publisher import process_scheduled, sweep_awaiting
 from bot.services.rss_monitor import poll_sources
@@ -31,6 +31,7 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         id="monitor",
         max_instances=1,
         coalesce=True,
+        misfire_grace_time=None,
     )
 
     async def pipeline_tick() -> None:
@@ -43,6 +44,7 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         id="pipeline",
         max_instances=1,
         coalesce=True,
+        misfire_grace_time=None,
     )
 
     scheduler.add_job(
@@ -52,6 +54,7 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         args=[bot],
         max_instances=1,
         coalesce=True,
+        misfire_grace_time=None,
     )
 
     scheduler.add_job(
@@ -61,6 +64,7 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         args=[bot],
         max_instances=1,
         coalesce=True,
+        misfire_grace_time=None,
     )
 
     scheduler.add_job(
@@ -70,6 +74,16 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         args=[bot],
         max_instances=1,
         coalesce=True,
+        misfire_grace_time=None,
+    )
+
+    scheduler.add_job(
+        cleanup_downloads,
+        IntervalTrigger(hours=6),
+        id="cleanup_downloads",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=None,
     )
 
     logger.info(

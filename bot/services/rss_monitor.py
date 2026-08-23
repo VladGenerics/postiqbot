@@ -114,29 +114,47 @@ async def _update_seen(source_id: int, last_seen: str) -> None:
             src.last_checked_at = datetime.now(timezone.utc)
 
 
+async def _touch_checked(source_id: int) -> None:
+    """Отметить время проверки, НЕ трогая last_seen."""
+    async with get_session() as session:
+        src = await session.get(SourceChannel, source_id)
+        if src:
+            src.last_checked_at = datetime.now(timezone.utc)
+
+
 async def poll_sources() -> int:
     """Опросить все активные источники. Возвращает число созданных job'ов."""
     created = 0
     for source in await _active_sources():
-        feed = await _fetch_for(source)
-        if feed is None or not feed.entries:
-            await _update_seen(source.id, source.last_seen_video_id or "")
-            continue
+        try:
+            created += await _poll_one(source)
+        except Exception:  # noqa: BLE001
+            logger.exception("Опрос источника %s упал", source.channel_title)
+    return created
 
-        if source.last_seen_video_id is None:
-            await _update_seen(source.id, feed.entries[0].video_id)
-            logger.info("Источник %s засеян (%s)", source.channel_title, feed.entries[0].video_id)
-            continue
 
-        fresh = _new_entries(feed.entries, source.last_seen_video_id)
-        if fresh:
-            conns = await _active_connections_for_source(source.id)
-            allowed = await active_user_ids([c.user_id for c in conns])
-            conns = [c for c in conns if c.user_id in allowed]
-            created += await _create_jobs_for_videos(conns, fresh)
-            logger.info(
-                "Источник %s: %d новых видео × %d связок",
-                source.channel_title, len(fresh), len(conns),
-            )
+async def _poll_one(source: SourceChannel) -> int:
+    """Опросить один источник, создать job'ы на новые видео. Число созданных."""
+    feed = await _fetch_for(source)
+    if feed is None or not feed.entries:
+        await _touch_checked(source.id)
+        return 0
+
+    if source.last_seen_video_id is None:
         await _update_seen(source.id, feed.entries[0].video_id)
+        logger.info("Источник %s засеян (%s)", source.channel_title, feed.entries[0].video_id)
+        return 0
+
+    fresh = _new_entries(feed.entries, source.last_seen_video_id)
+    created = 0
+    if fresh:
+        conns = await _active_connections_for_source(source.id)
+        allowed = await active_user_ids([c.user_id for c in conns])
+        conns = [c for c in conns if c.user_id in allowed]
+        created = await _create_jobs_for_videos(conns, fresh)
+        logger.info(
+            "Источник %s: %d новых видео × %d связок",
+            source.channel_title, len(fresh), len(conns),
+        )
+    await _update_seen(source.id, feed.entries[0].video_id)
     return created

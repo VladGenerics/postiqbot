@@ -182,39 +182,39 @@ def make_preview(
     overlay_path: str, position: str, scale_pct: int, out_path: str
 ) -> str:
     """JPG-превью: оверлей прямо на экране телефона, строго в пределах экрана."""
-    frame = _representative_frame(overlay_path)
-    overlay_path = frame or overlay_path
-    trimmed = _trim_transparent(overlay_path)
-    overlay_path = trimmed or overlay_path
-    sx, sy, sw, sh = _SCREEN_X, _SCREEN_Y, _SCREEN_W, _SCREEN_H
-    overlay_w = max(1, int(sw * max(1, scale_pct) / 100))
-    margin = max(2, int(sw * 0.03))
-    positions = _screen_positions(sx, sy, sw, sh, margin)
-    x_expr, y_expr = positions.get(position, positions["bottom_right"])
-    filtergraph = (
-        f"color=c=black:s=852x1846[bg];[bg][0:v]overlay=0:0[frame];"
-        f"[1:v]scale={overlay_w}:-1[ovr];"
-        f"[frame][ovr]overlay={x_expr}:{y_expr},scale=426:-1[v]"
-    )
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", _PHONE_FRAME,
-        "-i", overlay_path,
-        "-filter_complex", filtergraph,
-        "-map", "[v]", "-frames:v", "1", "-q:v", "3",
-        out_path,
-    ]
-    subprocess.run(
-        cmd, capture_output=True, text=True, check=True, timeout=_FRAMES_TIMEOUT
-    )
-    if trimmed:
-        try:
-            os.remove(trimmed)
-        except OSError:
-            pass
-    if frame:
-        try:
-            os.remove(frame)
-        except OSError:
-            pass
-    return out_path
+    frame: str | None = None
+    trimmed: str | None = None
+    try:
+        frame = _representative_frame(overlay_path)
+        overlay_path = frame or overlay_path
+        trimmed = _trim_transparent(overlay_path)
+        overlay_path = trimmed or overlay_path
+        sx, sy, sw, sh = _SCREEN_X, _SCREEN_Y, _SCREEN_W, _SCREEN_H
+        overlay_w = max(1, int(sw * max(1, scale_pct) / 100))
+        margin = max(2, int(sw * 0.03))
+        positions = _screen_positions(sx, sy, sw, sh, margin)
+        x_expr, y_expr = positions.get(position, positions["bottom_right"])
+        filtergraph = (
+            f"color=c=black:s=852x1846[bg];[bg][0:v]overlay=0:0[frame];"
+            f"[1:v]scale={overlay_w}:-1[ovr];"
+            f"[frame][ovr]overlay={x_expr}:{y_expr},scale=426:-1[v]"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", _PHONE_FRAME,
+            "-i", overlay_path,
+            "-filter_complex", filtergraph,
+            "-map", "[v]", "-frames:v", "1", "-q:v", "3",
+            out_path,
+        ]
+        subprocess.run(
+            cmd, capture_output=True, text=True, check=True, timeout=_FRAMES_TIMEOUT
+        )
+        return out_path
+    finally:
+        for tmp in (trimmed, frame):
+            if tmp:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass

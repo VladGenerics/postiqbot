@@ -59,7 +59,7 @@ def tt_calls(monkeypatch):
         return {"privacy_level_options": ["PUBLIC_TO_EVERYONE", "SELF_ONLY"],
                 "max_video_post_duration_sec": 0}
 
-    async def inbox(access: str, path: str) -> str:
+    async def inbox(access: str, path: str, *, on_init=None) -> str:
         calls.append("inbox")
         return "inbox-publish-id"
 

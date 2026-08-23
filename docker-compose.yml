@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postiq
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postiq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       POSTGRES_DB: postiq
     ports:
       - "127.0.0.1:5432:5432"
@@ -16,6 +16,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   bot:
     build:
@@ -25,7 +30,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://postiq:${POSTGRES_PASSWORD:-postiq}@db:5432/postiq
+      DATABASE_URL: postgresql+asyncpg://postiq:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@db:5432/postiq
     expose:
       - "8080"
     volumes:
@@ -40,6 +45,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    mem_limit: 2g
+    cpus: 1.5
+    logging: *logging
 
   caddy:
     image: caddy:2-alpine
@@ -56,6 +64,8 @@ services:
       - caddy-config:/config
     depends_on:
       - bot
+    mem_limit: 256m
+    logging: *logging
 
 volumes:
   postiq-pgdata:

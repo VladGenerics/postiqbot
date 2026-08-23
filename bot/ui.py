@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import os
 
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     FSInputFile,
@@ -108,17 +109,34 @@ async def show_screen(
 ) -> Message:
     """Отрисовать экран меню (баннер + подпись + inline-кнопки)."""
     media = _banner_media(icon, lang)
+
+    async def _edit_media() -> Message:
+        return await message.edit_media(
+            InputMediaPhoto(media=media, caption=caption, parse_mode="HTML"),
+            reply_markup=reply_markup,
+        )
+
     if edit:
         try:
-            m = await message.edit_media(
-                InputMediaPhoto(media=media, caption=caption, parse_mode="HTML"),
-                reply_markup=reply_markup,
-            )
+            m = await _edit_media()
             if hasattr(m, "photo"):
                 _remember(icon, lang, m)
             return m
-        except Exception:  # noqa: BLE001 — не смогли отредактировать, отправим новое
-            pass
+        except TelegramRetryAfter as e:
+            await asyncio.sleep(e.retry_after)
+            try:
+                m = await _edit_media()
+                if hasattr(m, "photo"):
+                    _remember(icon, lang, m)
+                return m
+            except TelegramBadRequest as e2:
+                if "message is not modified" in str(e2):
+                    return message
+            except Exception:  # noqa: BLE001 — ретрай тоже не вышел, шлём новое
+                pass
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e):
+                return message
     m = await message.answer_photo(media, caption=caption, reply_markup=reply_markup)
     _remember(icon, lang, m)
     return m

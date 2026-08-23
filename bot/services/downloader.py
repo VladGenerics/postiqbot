@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 import yt_dlp
 from aiogram import Bot
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, nulls_first, or_, select
 
 from bot.config import get_settings
 from bot.db.models import (
@@ -17,6 +17,7 @@ from bot.db.models import (
     JOB_DOWNLOADING,
     JOB_FAILED,
     JOB_PENDING,
+    JOB_PUBLISHING,
     JOB_SCHEDULED,
     Connection,
     Job,
@@ -48,6 +49,7 @@ def _ydl_opts(dest_dir: str) -> dict:
         "noprogress": True,
         "noplaylist": True,
         "retries": 3,
+        "socket_timeout": 30,
         "remote_components": ["ejs:github"],
     }
     cookies = working_copy(get_settings().ytdlp_cookies_file, dest_dir)
@@ -86,11 +88,11 @@ def _requeue_delay(attempts: int) -> timedelta | None:
     return timedelta(minutes=_REQUEUE_DELAYS_MINUTES[attempts])
 
 
-def download(video_url: str, video_id: str, job_id: int) -> str:
+def download(video_url: str, video_id: str, job_id: int, attempt: int = 0) -> str:
     """Скачать видео, вернуть путь к файлу (синхронно)."""
     dest_dir = get_settings().download_dir
     os.makedirs(dest_dir, exist_ok=True)
-    stem = f"{video_id}_{job_id}"
+    stem = f"{video_id}_{job_id}_a{attempt}"
     opts = _ydl_opts(dest_dir)
     opts["outtmpl"] = os.path.join(dest_dir, f"{stem}.%(ext)s")
     attempts = len(_RETRY_DELAYS) + 1
@@ -120,10 +122,10 @@ def download(video_url: str, video_id: str, job_id: int) -> str:
 _INFLIGHT_CAP = 4
 
 
-async def _claim_pending(limit: int) -> list[tuple[int, str, str]]:
+async def _claim_pending(limit: int) -> list[tuple[int, str, str, int]]:
     """Захватить pending-job'ы (→ downloading)."""
     now = datetime.now(timezone.utc)
-    claimed: list[tuple[int, str, str]] = []
+    claimed: list[tuple[int, str, str, int]] = []
     async with get_session() as session:
         inflight: dict[int, int] = dict(
             (
@@ -144,7 +146,7 @@ async def _claim_pending(limit: int) -> list[tuple[int, str, str]]:
                     Job.status == JOB_PENDING,
                     or_(Job.scheduled_at.is_(None), Job.scheduled_at <= now),
                 )
-                .order_by(Job.scheduled_at, Job.created_at)
+                .order_by(nulls_first(Job.scheduled_at), Job.created_at)
                 .limit(limit * 4)
                 .with_for_update(skip_locked=True)
             )
@@ -156,7 +158,7 @@ async def _claim_pending(limit: int) -> list[tuple[int, str, str]]:
                 continue
             job.status = JOB_DOWNLOADING
             inflight[job.connection_id] = inflight.get(job.connection_id, 0) + 1
-            claimed.append((job.id, job.video_url, job.source_video_id))
+            claimed.append((job.id, job.video_url, job.source_video_id, job.download_attempts))
     return claimed
 
 
@@ -205,6 +207,13 @@ async def tiktok_plan(session, connection_id: int) -> tuple[bool, dict]:
     return False, {f: getattr(row, f) for f in _TT_FIELDS}
 
 
+def _job_files(video_id: str, job_id: int) -> list[str]:
+    """Все файлы на диске, относящиеся к попыткам скачивания этого джоба (итоговые и недокачанные .part."""
+    dest_dir = get_settings().download_dir
+    pattern = os.path.join(dest_dir, f"{video_id}_{job_id}_a*")
+    return glob.glob(pattern + ".*") + glob.glob(pattern + "*.part")
+
+
 async def _finish(job_id: int, *, local_path: str | None, error: str | None) -> str:
     """Записать результат скачивания."""
     async with get_session() as session:
@@ -220,6 +229,16 @@ async def _finish(job_id: int, *, local_path: str | None, error: str | None) -> 
                 job.local_path = None
                 job.scheduled_at = datetime.now(timezone.utc) + delay
                 return "requeued"
+            stale = set(_job_files(job.source_video_id, job.id))
+            if local_path:
+                stale.add(local_path)
+            for path in stale:
+                try:
+                    if os.path.exists(path):
+                        os.remove(path)
+                except OSError:
+                    logger.warning("Не смог удалить файл %s джоба %d", path, job_id)
+            job.local_path = None
             job.status = JOB_FAILED
             return "failed"
         job.local_path = local_path
@@ -267,9 +286,9 @@ async def process_pending(bot: Bot | None = None, limit: int = 3) -> int:
     import asyncio
 
     ok = 0
-    for job_id, url, video_id in await _claim_pending(limit):
+    for job_id, url, video_id, attempts in await _claim_pending(limit):
         try:
-            path = await asyncio.to_thread(download, url, video_id, job_id)
+            path = await asyncio.to_thread(download, url, video_id, job_id, attempts)
         except Exception as exc:  # noqa: BLE001
             result = await _finish(job_id, local_path=None, error=str(exc))
             if result == "requeued":
@@ -293,3 +312,52 @@ async def process_pending(bot: Bot | None = None, limit: int = 3) -> int:
             except Exception:  # noqa: BLE001
                 logger.exception("Не смог отправить карточку подтверждения job=%d", job_id)
     return ok
+
+
+_ORPHAN_GRACE_HOURS = 2
+
+_LIVE_STATUSES = (JOB_PENDING, JOB_DOWNLOADING, JOB_AWAITING, JOB_SCHEDULED, JOB_PUBLISHING)
+
+
+async def cleanup_downloads(max_age_hours: int = 48) -> int:
+    """Свип каталога скачиваний."""
+    dest_dir = os.path.abspath(get_settings().download_dir)
+    if not os.path.isdir(dest_dir):
+        return 0
+    now = time.time()
+    max_age_sec = max(1, max_age_hours) * 3600
+    grace_sec = _ORPHAN_GRACE_HOURS * 3600
+
+    live_paths: set[str] = set()
+    live_stems: set[str] = set()
+    async with get_session() as session:
+        rows = await session.scalars(
+            select(Job.local_path).where(
+                Job.status.in_(_LIVE_STATUSES), Job.local_path.isnot(None)
+            )
+        )
+        for p in rows:
+            ap = os.path.abspath(p)
+            live_paths.add(ap)
+            live_stems.add(os.path.splitext(ap)[0])
+
+    removed = 0
+    with os.scandir(dest_dir) as it:
+        for entry in it:
+            try:
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+                path = os.path.abspath(entry.path)
+                age = now - entry.stat().st_mtime
+                owned = (
+                    path in live_paths or os.path.splitext(path)[0] in live_stems
+                )
+                if age <= (max_age_sec if owned else grace_sec):
+                    continue
+                os.remove(path)
+                removed += 1
+            except OSError as exc:
+                logger.warning("cleanup_downloads: пропускаю %s (%s)", entry.path, exc)
+    if removed:
+        logger.info("cleanup_downloads: удалено файлов %d", removed)
+    return removed

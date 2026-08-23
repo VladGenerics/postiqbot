@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from urllib.parse import quote
 
 import httpx
@@ -52,8 +53,13 @@ def _raise_for_error(payload: dict, ctx: str) -> None:
         raise ValueError(msg)
 
 
-async def upload_to_inbox(access_token: str, file_path: str) -> str:
-    """Залить файл в черновики TikTok. Вернуть publish_id."""
+async def upload_to_inbox(
+    access_token: str,
+    file_path: str,
+    *,
+    on_init: Callable[[str], Awaitable[None]] | None = None,
+) -> str:
+    """Залить файл в черновики TikTok."""
     size = os.path.getsize(file_path)
     init_body = {
         "source_info": {
@@ -79,6 +85,9 @@ async def upload_to_inbox(access_token: str, file_path: str) -> str:
         if not publish_id or not upload_url:
             _raise_for_error(payload, "inbox init")
             raise ValueError(f"TikTok inbox init error: {payload}")
+
+        if on_init is not None:
+            await on_init(publish_id)
 
         await _put_file(client, upload_url, file_path, size)
 
@@ -115,6 +124,7 @@ async def direct_post(
     brand_content_toggle: bool = False,
     brand_organic_toggle: bool = False,
     creator_info: dict | None = None,
+    on_init: Callable[[str], Awaitable[None]] | None = None,
 ) -> str:
     """Прямая публикация в TikTok (Direct Post, scope video.publish)."""
     if not privacy:
@@ -168,6 +178,9 @@ async def direct_post(
             _raise_for_error(payload, "direct init")
             raise ValueError(f"TikTok direct init error: {payload}")
 
+        if on_init is not None:
+            await on_init(publish_id)
+
         await _put_file(client, upload_url, file_path, size)
 
     return publish_id
@@ -178,15 +191,15 @@ async def _put_file(
 ) -> None:
     """Залить байты одним чанком на выданный TikTok upload_url."""
     with open(file_path, "rb") as f:
-        content = f.read()
-    put = await client.put(
-        upload_url,
-        content=content,
-        headers={
-            "Content-Type": "video/mp4",
-            "Content-Range": f"bytes 0-{size - 1}/{size}",
-        },
-    )
+        put = await client.put(
+            upload_url,
+            content=f,
+            headers={
+                "Content-Type": "video/mp4",
+                "Content-Range": f"bytes 0-{size - 1}/{size}",
+                "Content-Length": str(size),
+            },
+        )
     if put.status_code not in (200, 201):
         raise ValueError(f"TikTok upload failed: {put.status_code} {put.text}")
 

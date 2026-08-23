@@ -10,3 +10,16 @@ downloads/
 .DS_Store
 cookies.txt
 *cookies*.txt
+
+tests/
+docs/
+.pytest_cache/
+*.md
+
+force_test.py
+force_publish.py
+pg_diag.txt
+pg_setup.txt
+
+.claude/
+.kimchi/

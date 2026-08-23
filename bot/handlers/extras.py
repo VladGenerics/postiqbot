@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import datetime
 
 from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
@@ -15,14 +16,16 @@ from aiogram.types import (
     Message,
     PreCheckoutQuery,
 )
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 
 from bot.config import get_settings
-from bot.db.models import Connection, Payment, PublishAccount, User
+from bot.db.models import PAY_PAID, Connection, Payment, PublishAccount, User
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.i18n import t, user_lang
 from bot.services import platega
+from bot.services.payments_service import grant_in_session
 from bot.ui import cleanup_ask, remember_prompt, send_with_icon
 from bot.services.subscription import grant_referral_bonus, grant_subscription, status_text
 
@@ -146,11 +149,22 @@ async def buy_plan(callback: CallbackQuery, bot: Bot) -> None:
     period_txt = t("inv_period_forever", lang) if period == "forever" else t("inv_period_month", lang)
 
     if currency == "stars":
+        async with get_session() as session:
+            payment = Payment(
+                user_id=callback.from_user.id,
+                days=days,
+                plan=plan,
+                amount=s.plan_price(plan, period, "stars"),
+                currency="XTR",
+                provider="stars",
+                provider_payment_id=None,
+            )
+            session.add(payment)
         await bot.send_invoice(
             chat_id=callback.from_user.id,
             title=t("inv_title", lang, plan=label),
             description=t("inv_desc", lang, period=period_txt),
-            payload=f"sub:{plan}:{days}",
+            payload=f"stars:{payment.id}",
             provider_token="",
             currency="XTR",
             prices=[LabeledPrice(label=t("inv_label", lang, plan=label),
@@ -195,23 +209,73 @@ async def pre_checkout(query: PreCheckoutQuery, bot: Bot) -> None:
     await bot.answer_pre_checkout_query(query.id, ok=True)
 
 
+_ALREADY_PAID_TXT = {
+    "ru": "✅ Эта оплата уже засчитана — подписка активна.",
+    "en": "✅ This payment was already applied — the subscription is active.",
+}
+
+
+async def _activate_stars(
+    telegram_id: int, payment_id: int, charge_id: str
+) -> tuple[int, str | None, datetime] | None:
+    """Клейм Stars-платежа по charge_id + выдача подписки одной транзакцией."""
+    async with get_session() as session:
+        try:
+            res = await session.execute(
+                update(Payment)
+                .where(
+                    Payment.id == payment_id,
+                    Payment.user_id == telegram_id,
+                    Payment.provider == "stars",
+                    Payment.status != PAY_PAID,
+                )
+                .values(
+                    status=PAY_PAID,
+                    provider_payment_id=charge_id or None,
+                    paid_at=func.now(),
+                    granted_at=func.now(),
+                )
+                .returning(Payment.days, Payment.plan)
+            )
+            row = res.first()
+        except IntegrityError:
+            return None
+        if row is None:
+            return None
+        until = await grant_in_session(session, telegram_id, row.days, row.plan)
+    return row.days, row.plan, until
+
+
 @router.message(F.successful_payment)
 async def on_paid(message: Message, bot: Bot) -> None:
-    payload = message.successful_payment.invoice_payload
+    sp = message.successful_payment
+    payload = sp.invoice_payload
+    user_id = message.from_user.id
+    lang = await user_lang(user_id)
+
     parts = payload.split(":")
-    plan = parts[1] if len(parts) >= 3 and parts[1] in get_settings().plans else "starter"
-    try:
-        days = int(parts[2])
-    except (IndexError, ValueError):
-        days = 30
-    until = await grant_subscription(message.from_user.id, days, plan=plan)
-    lang = await user_lang(message.from_user.id)
+    if len(parts) == 2 and parts[0] == "stars" and parts[1].isdigit():
+        activated = await _activate_stars(
+            user_id, int(parts[1]), sp.telegram_payment_charge_id or ""
+        )
+        if activated is None:
+            await message.answer(_ALREADY_PAID_TXT[lang])
+            return
+        days, _plan, until = activated
+    else:
+        plan = parts[1] if len(parts) >= 3 and parts[1] in get_settings().plans else "starter"
+        try:
+            days = int(parts[2])
+        except (IndexError, ValueError):
+            days = 30
+        until = await grant_subscription(user_id, days, plan=plan)
+
     if days >= get_settings().forever_days:
         active = t("paid_forever", lang)
     else:
         active = t("paid_until", lang, date=f"{until:%d.%m.%Y}")
     await message.answer(t("paid_ok", lang, active=active))
-    await _reward_referrer(bot, message.from_user.id)
+    await _reward_referrer(bot, user_id)
 
 
 async def reward_referrer_public(bot: Bot, payer_id: int) -> None:

@@ -8,6 +8,7 @@ from aiogram.enums import ChatType
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 
 from bot.config import get_settings
 from bot.db.models import SupportMessage, SupportThread
@@ -63,8 +64,21 @@ async def _topic_for(bot: Bot, user_id: int, title: str) -> int | None:
         return None
     tid = topic.message_thread_id
     async with get_session() as session:
-        session.add(SupportThread(user_id=user_id, topic_id=tid))
-    return tid
+        stmt = (
+            insert(SupportThread)
+            .values(user_id=user_id, topic_id=tid)
+            .on_conflict_do_nothing(index_elements=["user_id"])
+        )
+        await session.execute(stmt)
+    async with get_session() as session:
+        thr = await session.get(SupportThread, user_id)
+        winner = thr.topic_id if thr else tid
+    if winner != tid:
+        try:
+            await bot.delete_forum_topic(chat_id=gid, message_thread_id=tid)
+        except Exception:  # noqa: BLE001 — не критично: лишняя пустая тема
+            logger.warning("Не смог удалить тему-сироту %s (user=%s)", tid, user_id)
+    return winner
 
 
 @router.message(F.chat.type == ChatType.PRIVATE)

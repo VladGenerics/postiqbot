@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from cryptography.fernet import InvalidToken
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
@@ -33,7 +34,11 @@ from bot.services import tiktok_api, tiktok_tokens
 from bot.services.overlay import apply_overlay, video_duration
 from bot.services.subscription import inc_videos_used
 from bot.services.tiktok_policy import POST_FIELDS, effective_toggles, is_direct_post
-from bot.services.youtube_api import upload_video
+from bot.services.youtube_api import (
+    UploadSessionExpired,
+    create_upload_session,
+    resume_upload,
+)
 from bot.services.youtube_oauth import credentials_from_refresh_token
 
 logger = logging.getLogger("postiqbot.publisher")
@@ -65,6 +70,8 @@ class _Task:
     tt_brand_content: bool = False
     publish_attempts: int = 0
     fell_back_to_draft: bool = False
+    tt_publish_id: str | None = None
+    yt_resumable_uri: str | None = None
 
     @property
     def tt_direct(self) -> bool:
@@ -180,12 +187,28 @@ async def _claim_due(limit: int) -> list[_Task]:
                     last = last.replace(tzinfo=timezone.utc)
                 if now - last < gap:
                     continue
+            try:
+                refresh_token = decrypt(acc.refresh_token_enc)
+            except InvalidToken:
+                logger.exception(
+                    "Не смог расшифровать refresh_token аккаунта %d (связка %d) "
+                    "— пропускаю, джоб помечен ошибкой", acc.id, conn.id,
+                )
+                job.error = "decrypt failed: refresh_token аккаунта не читается"
+                continue
+            except Exception:  # noqa: BLE001 — любая другая ошибка тоже не стоп-кран
+                logger.exception(
+                    "Ошибка расшифровки токена аккаунта %d (связка %d)", acc.id, conn.id,
+                )
+                job.error = "decrypt failed: неизвестная ошибка расшифровки"
+                continue
+
             common = dict(
                 job_id=job.id,
                 user_id=conn.user_id,
                 title=job.title or "video",
                 local_path=job.local_path or "",
-                refresh_token=decrypt(acc.refresh_token_enc),
+                refresh_token=refresh_token,
                 overlay_file_id=conn.overlay_file_id,
                 overlay_position=conn.overlay_position,
                 overlay_scale=conn.overlay_scale,
@@ -197,6 +220,21 @@ async def _claim_due(limit: int) -> list[_Task]:
                     continue
                 if used.get(project.id, 0) >= project.daily_quota:
                     continue
+                try:
+                    client_secret = decrypt(project.client_secret_enc)
+                except InvalidToken:
+                    logger.exception(
+                        "Не смог расшифровать client_secret проекта %d — "
+                        "пропускаю, джоб помечен ошибкой", project.id,
+                    )
+                    job.error = "decrypt failed: client_secret проекта не читается"
+                    continue
+                except Exception:  # noqa: BLE001
+                    logger.exception(
+                        "Ошибка расшифровки client_secret проекта %d", project.id,
+                    )
+                    job.error = "decrypt failed: неизвестная ошибка расшифровки"
+                    continue
                 used[project.id] = used.get(project.id, 0) + 1
                 job.status = JOB_PUBLISHING
                 tasks.append(
@@ -204,7 +242,8 @@ async def _claim_due(limit: int) -> list[_Task]:
                         platform="youtube",
                         privacy=conn.privacy,
                         client_id=project.client_id,
-                        client_secret=decrypt(project.client_secret_enc),
+                        client_secret=client_secret,
+                        yt_resumable_uri=job.yt_resumable_uri,
                         **common,
                     )
                 )
@@ -216,6 +255,7 @@ async def _claim_due(limit: int) -> list[_Task]:
                     connection_id=conn.id,
                     source_platform=conn.source_channel.platform,
                     publish_attempts=job.publish_attempts,
+                    tt_publish_id=job.tt_publish_id,
                     **_tt_settings(job, conn),
                     **common,
                 ))
@@ -224,6 +264,22 @@ async def _claim_due(limit: int) -> list[_Task]:
             conn_used[conn.id] = conn_used.get(conn.id, 0) + 1
             last_pub[conn.id] = now
     return tasks
+
+
+async def _save_tt_publish_id(job_id: int, publish_id: str) -> None:
+    """Сохранить publish_id в джоб СРАЗУ после init-запроса, до заливки байтов."""
+    async with get_session() as session:
+        job = await session.get(Job, job_id)
+        if job:
+            job.tt_publish_id = publish_id
+
+
+async def _save_yt_resumable_uri(job_id: int, uri: str) -> None:
+    """Сохранить URI resumable-сессии YouTube ДО заливки байтов."""
+    async with get_session() as session:
+        job = await session.get(Job, job_id)
+        if job:
+            job.yt_resumable_uri = uri
 
 
 async def _finalize(
@@ -303,13 +359,28 @@ def _fail_msg(task: _Task, exc: Exception, lang: str) -> tuple[str, InlineKeyboa
     return t("pub_fail", lang, title=task.title, error=str(exc)), None
 
 
-def _yt_upload(task: _Task, path: str) -> str:
+async def _yt_publish(task: _Task, path: str) -> str:
+    """Заливка на YouTube с идемпотентностью по resumable-URI."""
     creds = credentials_from_refresh_token(
         task.refresh_token, task.client_id, task.client_secret
     )
-    return upload_video(
-        creds, path, task.title, description=task.description, privacy_status=task.privacy
+    if task.yt_resumable_uri:
+        try:
+            return await asyncio.to_thread(
+                resume_upload, creds, task.yt_resumable_uri, path
+            )
+        except UploadSessionExpired:
+            logger.warning(
+                "job=%d: resumable-сессия YouTube протухла — начинаю заливку заново",
+                task.job_id,
+            )
+            task.yt_resumable_uri = None
+    uri = await asyncio.to_thread(
+        create_upload_session,
+        creds, path, task.title, task.description, task.privacy,
     )
+    await _save_yt_resumable_uri(task.job_id, uri)
+    return await asyncio.to_thread(resume_upload, creds, uri, path)
 
 
 class _VideoTooLong(RuntimeError):
@@ -334,6 +405,14 @@ class _PrivacyUnavailable(RuntimeError):
 
 async def _tt_direct(task: _Task, path: str, access: str) -> str:
     """Direct Post + проверки, которые в режиме карточки делал пользователь."""
+    if task.tt_publish_id:
+        logger.info(
+            "job=%d: продолжаю публикацию TikTok по сохранённому publish_id",
+            task.job_id,
+        )
+        await tiktok_api.poll_publish_status(access, task.tt_publish_id)
+        return task.tt_publish_id
+
     info = await tiktok_api.get_creator_info(access)
     limit = int(info.get("max_video_post_duration_sec") or 0)
     if limit:
@@ -360,6 +439,7 @@ async def _tt_direct(task: _Task, path: str, access: str) -> str:
         brand_content_toggle=task.tt_brand_content,
         brand_organic_toggle=task.tt_brand_organic,
         creator_info=info,
+        on_init=lambda pid: _save_tt_publish_id(task.job_id, pid),
     )
     await tiktok_api.poll_publish_status(access, publish_id)
     return publish_id
@@ -367,11 +447,14 @@ async def _tt_direct(task: _Task, path: str, access: str) -> str:
 
 async def _publish(task: _Task, path: str) -> str:
     if task.platform == "youtube":
-        return await asyncio.to_thread(_yt_upload, task, path)
+        return await _yt_publish(task, path)
     if task.platform == "tiktok":
         access = await tiktok_tokens.access_token(task.account_id)
+        save_id = lambda pid: _save_tt_publish_id(task.job_id, pid)  # noqa: E731
         if not task.tt_direct:
-            return await tiktok_api.upload_to_inbox(access, path)
+            if task.tt_publish_id:
+                return task.tt_publish_id
+            return await tiktok_api.upload_to_inbox(access, path, on_init=save_id)
         try:
             return await _tt_direct(task, path, access)
         except tiktok_api.TikTokUnauditedError as exc:
@@ -380,7 +463,7 @@ async def _publish(task: _Task, path: str) -> str:
                 task.job_id, str(exc)[:150],
             )
             task.fell_back_to_draft = True
-            return await tiktok_api.upload_to_inbox(access, path)
+            return await tiktok_api.upload_to_inbox(access, path, on_init=save_id)
     raise ValueError(f"unknown platform: {task.platform}")
 
 
@@ -446,8 +529,11 @@ async def process_scheduled(bot: Bot, limit: int = 3) -> int:
             remote_id = await _publish(task, publish_path)
             await _finalize(task.job_id, remote_id=remote_id, error=None,
                             platform=task.platform)
-            await inc_videos_used(task.user_id)
             published += 1
+            try:
+                await inc_videos_used(task.user_id)
+            except Exception:  # noqa: BLE001
+                logger.exception("Не смог увеличить счётчик видео job=%d", task.job_id)
             logger.info("Опубликовано job=%d (%s) → %s", task.job_id, task.platform, remote_id)
             await _notify(bot, task.user_id, _success_msg(task, remote_id, lang))
         except Exception as exc:  # noqa: BLE001
@@ -530,7 +616,13 @@ async def sweep_awaiting(bot: Bot) -> int:
         for job in stuck:
             job.status = JOB_SCHEDULED
         if stuck:
-            logger.warning("Разморожено зависших в publishing: %d", len(stuck))
+            resumed = sum(
+                1 for j in stuck if j.tt_publish_id or j.yt_resumable_uri
+            )
+            logger.warning(
+                "Разморожено зависших в publishing: %d (из них с сохранённой "
+                "публикацией — %d)", len(stuck), resumed,
+            )
 
         stuck_dl = list(
             await session.scalars(
@@ -543,6 +635,7 @@ async def sweep_awaiting(bot: Bot) -> int:
             )
         )
         for job in stuck_dl:
+            job.download_attempts += 1
             job.status = JOB_PENDING
         if stuck_dl:
             logger.warning("Возвращено зависших в downloading: %d", len(stuck_dl))

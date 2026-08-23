@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import asyncio
 import html
+import logging
 import os
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
@@ -30,6 +33,8 @@ from bot.services.tiktok_policy import overlay_allowed
 from bot.ui import ask, cleanup_ask, edit_anchor, send_with_icon
 
 router = Router(name="connections")
+
+logger = logging.getLogger("postiqbot.connections")
 
 _NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 
@@ -273,18 +278,35 @@ async def show_connections(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
+async def _edit_once(message: Message, method: str, kwargs: dict) -> bool:
+    """Одна попытка правки сообщения (edit_text/edit_caption)."""
+    for attempt in (1, 2):
+        try:
+            await getattr(message, method)(**kwargs)
+            return True
+        except TelegramRetryAfter as e:
+            if attempt == 2:
+                return False
+            await asyncio.sleep(e.retry_after)
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e):
+                return True
+            return False
+        except Exception:  # noqa: BLE001 — сообщение удалено / нет прав и т.п.
+            return False
+    return False
+
+
 async def _edit(message: Message, text: str, markup: InlineKeyboardMarkup | None = None) -> None:
     """Отредактировать сообщение «на месте»: если это фото-баннер — правим его подпись, если текст — текст."""
-    try:
-        await message.edit_text(text, reply_markup=markup, link_preview_options=_NO_PREVIEW)
+    if await _edit_once(
+        message,
+        "edit_text",
+        {"text": text, "reply_markup": markup, "link_preview_options": _NO_PREVIEW},
+    ):
         return
-    except Exception:  # noqa: BLE001 — у фото нет текста, пробуем подпись
-        pass
-    try:
-        await message.edit_caption(caption=text, reply_markup=markup)
+    if await _edit_once(message, "edit_caption", {"caption": text, "reply_markup": markup}):
         return
-    except Exception:  # noqa: BLE001
-        pass
     await message.answer(text, reply_markup=markup, link_preview_options=_NO_PREVIEW)
 
 
@@ -654,6 +676,9 @@ async def backfill_menu(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
+_backfill_in_progress: set[int] = set()
+
+
 @router.callback_query(F.data.startswith("bf:"))
 async def backfill_do(callback: CallbackQuery) -> None:
     from bot.services.backfill import backfill_connection
@@ -661,19 +686,39 @@ async def backfill_do(callback: CallbackQuery) -> None:
     lang = await user_lang(callback.from_user.id)
     parts = callback.data.split(":")
     conn_id, total = int(parts[1]), int(parts[2])
-    await callback.answer(t("bf_working", lang))
-    await _edit(callback.message, t("bf_working", lang))
-    res = await backfill_connection(conn_id, total, user_id=callback.from_user.id)
-    if not res.ok:
-        txt = t("bf_empty", lang) if res.error in ("empty", "unsupported", "no_source") else t("c_not_found", lang)
-    elif res.created == 0:
-        txt = t("bf_none", lang)
-    else:
-        txt = t("bf_done", lang, created=res.created, title=res.title)
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")],
-    ])
-    await _edit(callback.message, txt, kb)
+    if conn_id in _backfill_in_progress:
+        await callback.answer(t("bf_working", lang), show_alert=True)
+        return
+    _backfill_in_progress.add(conn_id)
+    try:
+        await callback.answer(t("bf_working", lang))
+        await _edit(callback.message, t("bf_working", lang))
+        try:
+            res = await backfill_connection(conn_id, total, user_id=callback.from_user.id)
+        except Exception:  # noqa: BLE001 — сеть/TikTok/БД: не оставляем вечное «Работаю…»
+            logger.exception("Ошибка бэкфилла conn=%s (user=%s)", conn_id, callback.from_user.id)
+            txt = (
+                "Не удалось собрать архив, попробуйте ещё раз."
+                if lang == "ru"
+                else "Couldn't fetch the archive, please try again."
+            )
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")],
+            ])
+            await _edit(callback.message, txt, kb)
+            return
+        if not res.ok:
+            txt = t("bf_empty", lang) if res.error in ("empty", "unsupported", "no_source") else t("c_not_found", lang)
+        elif res.created == 0:
+            txt = t("bf_none", lang)
+        else:
+            txt = t("bf_done", lang, created=res.created, title=res.title)
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=t("c_btn_back", lang), callback_data=f"conn:{conn_id}")],
+        ])
+        await _edit(callback.message, txt, kb)
+    finally:
+        _backfill_in_progress.discard(conn_id)
 
 
 @router.callback_query(F.data.startswith("conn_sched:"))
@@ -779,7 +824,17 @@ async def got_times(message: Message, state: FSMContext) -> None:
     times = []
     for tok in tokens:
         if "/" in tok:
-            tz = tok
+            try:
+                tz = str(ZoneInfo(tok))
+            except (ZoneInfoNotFoundError, ValueError):
+                await message.answer(
+                    "Не знаю такую таймзону: <code>{tok}</code>.\n"
+                    "Пример: <code>Europe/Moscow</code>".format(tok=html.escape(tok))
+                    if lang == "ru"
+                    else "Unknown timezone: <code>{tok}</code>.\n"
+                    "Example: <code>Europe/Moscow</code>".format(tok=html.escape(tok))
+                )
+                return
         elif re.fullmatch(r"\d{1,2}:\d{2}", tok):
             h, m = tok.split(":")
             if 0 <= int(h) <= 23 and 0 <= int(m) <= 59:
@@ -846,7 +901,7 @@ async def _build_preview(bot: Bot, conn: Connection) -> tuple[str, list[str]]:
     os.makedirs(dl, exist_ok=True)
     file = await bot.get_file(conn.overlay_file_id)
     ext = os.path.splitext(file.file_path or "")[1] or ".bin"
-    src = os.path.join(dl, f"ovlprev_src_{file.file_unique_id}{ext}")
+    src = os.path.join(dl, f"ovlprev_src_{conn.user_id}_{file.file_unique_id}{ext}")
     await bot.download_file(file.file_path, src)
     preview = os.path.join(dl, f"ovlprev_{conn.id}.jpg")
     await asyncio.to_thread(

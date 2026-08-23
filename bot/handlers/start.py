@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, F, Router
 from aiogram.filters import CommandObject, CommandStart
+from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -100,7 +101,8 @@ async def _open_main(message: Message, user_id: int) -> None:
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, command: CommandObject) -> None:
+async def cmd_start(message: Message, command: CommandObject, state: FSMContext) -> None:
+    await state.clear()
     referred_by = await _parse_referrer(command, message.from_user.id)
     await ensure_user(message.from_user.id, referred_by=referred_by)
 

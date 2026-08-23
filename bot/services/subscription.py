@@ -179,8 +179,6 @@ async def warn_expiring(bot) -> int:
             and (until := access_until(u)) is not None
             and now < until <= now + timedelta(hours=24)
         ]
-        for u in expiring:
-            u.expiry_warned = True
 
     sent = 0
     for u in expiring:
@@ -190,9 +188,13 @@ async def warn_expiring(bot) -> int:
                 u.telegram_id,
                 t("expiry_soon", u.lang or "ru", date=f"{until:%d.%m.%Y %H:%M} UTC"),
             )
-            sent += 1
         except Exception:  # noqa: BLE001 — заблокировал бота и т.п.
-            pass
+            continue
+        sent += 1
+        async with get_session() as session:
+            user = await session.get(User, u.telegram_id)
+            if user:
+                user.expiry_warned = True
     return sent
 
 

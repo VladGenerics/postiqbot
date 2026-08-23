@@ -104,29 +104,58 @@ async def got_link(message: Message, state: FSMContext) -> None:
     await cleanup_ask(message, state)
 
     accounts = await _user_accounts(message.from_user.id)
+    if not accounts:
+        await state.clear()
+        await message.answer(t("source_need_account", lang))
+        return
     if len(accounts) == 1:
         await _finish(message, state, accounts[0].id, source_id, title)
         return
 
     await state.update_data(source_id=source_id, source_title=title)
     await state.set_state(SourceFlow.waiting_account)
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=a.channel_title, callback_data=f"src_dest:{a.id}"
-                )
-            ]
-            for a in accounts
-        ]
-    )
+    rows = [
+        [InlineKeyboardButton(text=a.channel_title, callback_data=f"src_dest:{a.id}")]
+        for a in accounts
+    ]
+    rows.append([InlineKeyboardButton(text=t("c_btn_cancel", lang), callback_data="src_dest_cancel")])
+    kb = InlineKeyboardMarkup(inline_keyboard=rows)
     await message.answer(t("src_choose_dest", lang, title=title), reply_markup=kb)
+
+
+@router.callback_query(F.data == "src_dest_cancel")
+async def dest_choose_cancel(callback: CallbackQuery, state: FSMContext) -> None:
+    """Отмена выбора канала назначения — назад к приглашению ввода ссылки."""
+    lang = await user_lang(callback.from_user.id)
+    await state.clear()
+    try:
+        await callback.message.delete()
+    except Exception:  # noqa: BLE001 — уже удалено / нет прав
+        pass
+    await open_add_source(callback.message, callback.from_user.id, state)
+    await callback.answer(t("ask_cancelled", lang))
 
 
 @router.callback_query(SourceFlow.waiting_account, F.data.startswith("src_dest:"))
 async def chose_account(callback: CallbackQuery, state: FSMContext) -> None:
     account_id = int(callback.data.split(":", 1)[1])
-    lang = await user_lang(callback.from_user.id)
+    uid = callback.from_user.id
+    lang = await user_lang(uid)
+    async with get_session() as session:
+        account = await session.scalar(
+            select(PublishAccount).where(
+                PublishAccount.id == account_id, PublishAccount.user_id == uid
+            )
+        )
+    if account is None:
+        await state.clear()
+        await callback.answer(
+            "Канал назначения недоступен, добавьте источник заново."
+            if lang == "ru"
+            else "The destination channel is unavailable, add the source again.",
+            show_alert=True,
+        )
+        return
     data = await state.get_data()
     source_id = data["source_id"]
     title = data.get("source_title", t("src_default_title", lang))

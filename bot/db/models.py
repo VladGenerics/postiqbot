@@ -9,11 +9,13 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -42,15 +44,23 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
     referred_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    referral_rewarded: Mapped[bool] = mapped_column(Boolean, default=False)
-    tier_accounts: Mapped[int] = mapped_column(Integer, default=1)
-    tier_videos: Mapped[int] = mapped_column(Integer, default=4)
-    videos_used: Mapped[int] = mapped_column(Integer, default=0)
-    tier_priority: Mapped[int] = mapped_column(Integer, default=0)
+    referral_rewarded: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    tier_accounts: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    tier_videos: Mapped[int] = mapped_column(Integer, default=4, server_default="4")
+    videos_used: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    tier_priority: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0"
+    )
     tier_plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    lang: Mapped[str] = mapped_column(String(2), default="ru")
-    expiry_warned: Mapped[bool] = mapped_column(Boolean, default=False)
-    channel_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    lang: Mapped[str] = mapped_column(String(2), default="ru", server_default="ru")
+    expiry_warned: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    channel_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
 
     publish_accounts: Mapped[list["PublishAccount"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
@@ -114,7 +124,7 @@ class PublishAccount(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.telegram_id", ondelete="CASCADE")
+        BigInteger, ForeignKey("users.telegram_id", ondelete="CASCADE"), index=True
     )
     project_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("oauth_projects.id", ondelete="RESTRICT"), nullable=True
@@ -168,7 +178,7 @@ class Connection(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.telegram_id", ondelete="CASCADE")
+        BigInteger, ForeignKey("users.telegram_id", ondelete="CASCADE"), index=True
     )
     publish_account_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("publish_accounts.id", ondelete="CASCADE")
@@ -183,25 +193,43 @@ class Connection(Base):
         Integer, ForeignKey("folders.id", ondelete="SET NULL"), nullable=True
     )
 
-    schedule_mode: Mapped[str] = mapped_column(String(16), default="immediate")
-    interval_minutes: Mapped[int] = mapped_column(Integer, default=0)
+    schedule_mode: Mapped[str] = mapped_column(
+        String(16), default="immediate", server_default="immediate"
+    )
+    interval_minutes: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0"
+    )
     post_times: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    tz: Mapped[str] = mapped_column(String(48), default="UTC")
+    tz: Mapped[str] = mapped_column(String(48), default="UTC", server_default="UTC")
 
-    tt_auto: Mapped[bool] = mapped_column(Boolean, default=False)
+    tt_auto: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
     tt_privacy: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    tt_disable_comment: Mapped[bool] = mapped_column(Boolean, default=True)
-    tt_disable_duet: Mapped[bool] = mapped_column(Boolean, default=True)
-    tt_disable_stitch: Mapped[bool] = mapped_column(Boolean, default=True)
-    tt_brand_organic: Mapped[bool] = mapped_column(Boolean, default=False)
-    tt_brand_content: Mapped[bool] = mapped_column(Boolean, default=False)
+    tt_disable_comment: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true")
+    )
+    tt_disable_duet: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true")
+    )
+    tt_disable_stitch: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true")
+    )
+    tt_brand_organic: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    tt_brand_content: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
     tt_consent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
     overlay_file_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     overlay_position: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    overlay_scale: Mapped[int] = mapped_column(Integer, default=30)
+    overlay_scale: Mapped[int] = mapped_column(
+        Integer, default=30, server_default="30"
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -237,11 +265,12 @@ class Job(Base):
         UniqueConstraint(
             "connection_id", "source_video_id", name="uq_job_source_video"
         ),
+        Index("ix_jobs_status_updated_at", "status", "updated_at"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     connection_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("connections.id", ondelete="CASCADE")
+        Integer, ForeignKey("connections.id", ondelete="CASCADE"), index=True
     )
     source_video_id: Mapped[str] = mapped_column(String(64))
     video_url: Mapped[str] = mapped_column(Text)
@@ -252,6 +281,7 @@ class Job(Base):
     )
     local_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     youtube_video_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    yt_resumable_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     download_attempts: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0", nullable=False
@@ -288,23 +318,41 @@ PAY_FAILED = "failed"
 
 
 class Payment(Base):
-    """Платёж через внешнего провайдера (Platega: СБП/крипта)."""
+    """Платёж через внешнего провайдера (Platega) или Telegram Stars."""
 
     __tablename__ = "payments"
+    __table_args__ = (
+        Index(
+            "uq_payments_provider_tx",
+            "provider",
+            "provider_payment_id",
+            unique=True,
+            postgresql_where=text("provider_payment_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, index=True)
     days: Mapped[int] = mapped_column(Integer)
     plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
     amount: Mapped[int] = mapped_column(Integer)
-    currency: Mapped[str] = mapped_column(String(8), default="RUB")
-    provider: Mapped[str] = mapped_column(String(16), default="platega")
+    currency: Mapped[str] = mapped_column(
+        String(8), default="RUB", server_default="RUB"
+    )
+    provider: Mapped[str] = mapped_column(
+        String(16), default="platega", server_default="platega"
+    )
     provider_payment_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
-    status: Mapped[str] = mapped_column(String(16), default=PAY_PENDING, index=True)
+    status: Mapped[str] = mapped_column(
+        String(16), default=PAY_PENDING, server_default=PAY_PENDING, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
     paid_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    granted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 

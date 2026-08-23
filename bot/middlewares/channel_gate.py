@@ -31,7 +31,7 @@ class ChannelGateMiddleware(BaseMiddleware):
 
         user = data.get("event_from_user")
         if user is None:
-            return await handler(event, data)
+            return None
 
         if user.id in s.admin_id_set:
             return await handler(event, data)

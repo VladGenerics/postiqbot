@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 from aiogram import Bot
 from aiohttp import web
@@ -12,6 +13,26 @@ from bot.db.session import get_session
 from bot.services.payments_service import finalize_payment
 
 logger = logging.getLogger("postiqbot.payments")
+
+_DEBOUNCE_TTL = 30.0
+_DEBOUNCE_MAX = 1000
+
+_seen_cb: dict[str, float] = {}
+
+
+def _debounce_hit(tx_id: str) -> bool:
+    """True, если по этому tx уже был колбэк в последние _DEBOUNCE_TTL секунд."""
+    now = time.monotonic()
+    if len(_seen_cb) >= _DEBOUNCE_MAX:
+        cutoff = now - _DEBOUNCE_TTL
+        stale = [k for k, ts in _seen_cb.items() if ts < cutoff]
+        for k in stale:
+            del _seen_cb[k]
+        if len(_seen_cb) >= _DEBOUNCE_MAX:
+            _seen_cb.clear()
+    last = _seen_cb.get(tx_id)
+    _seen_cb[tx_id] = now
+    return last is not None and now - last < _DEBOUNCE_TTL
 
 
 def _extract(data: dict) -> tuple[str | None, str]:
@@ -32,12 +53,16 @@ async def payment_callback(request: web.Request) -> web.Response:
     if not tx_id:
         return web.Response(text="ok")
 
+    if _debounce_hit(tx_id):
+        return web.Response(text="ok")
+
     async with get_session() as session:
         payment = await session.scalar(
             select(Payment).where(Payment.provider_payment_id == tx_id)
         )
-    if payment is not None:
-        await finalize_payment(bot, payment.id)
+    if payment is None or payment.provider != "platega" or not payment.provider_payment_id:
+        return web.Response(text="ok")
+    await finalize_payment(bot, payment.id)
     return web.Response(text="ok")
 
 

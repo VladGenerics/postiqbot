@@ -19,10 +19,13 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH"
 
+ARG DENO_VERSION=2.9.5
+ARG DENO_SHA256=8b010a3b1a4a0188a67cdb8a7a27348b2a501af78aec7fc74f2ace167368d530
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg curl unzip ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && curl -fsSL https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip -o /tmp/deno.zip \
+    && curl -fsSL "https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-x86_64-unknown-linux-gnu.zip" -o /tmp/deno.zip \
+    && echo "${DENO_SHA256}  /tmp/deno.zip" | sha256sum -c - \
     && unzip /tmp/deno.zip -d /usr/local/bin \
     && rm /tmp/deno.zip \
     && /usr/local/bin/deno --version
@@ -30,14 +33,11 @@ RUN apt-get update \
 COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /app
-COPY . .
 
 RUN useradd -m -u 1000 postiq \
-    && mkdir -p /app/downloads \
-    && chown -R postiq:postiq /app
-USER postiq
+    && mkdir -p /app/downloads
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8080/healthz', timeout=3).status==200 else sys.exit(1)"
+COPY --chown=postiq:postiq . .
+USER postiq
 
 CMD ["python", "-m", "bot.main"]
