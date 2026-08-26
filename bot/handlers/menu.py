@@ -12,6 +12,7 @@ from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.i18n import label, set_user_lang, t, user_lang
 from bot.keyboards.commands import sync_user_commands
+from bot.services import promo
 from bot.services.subscription import status_text
 from bot.ui import show_screen
 
@@ -77,16 +78,23 @@ async def _referral_caption(user_id: int, lang: str, bot: Bot) -> str:
              invited=invited or 0, paid=paid or 0)
 
 
-def _plan_card(plan: str, lang: str) -> str:
+def _plan_card(plan: str, lang: str, applied: promo.Applied | None = None) -> str:
     """Описание одного плана для экрана выбора периода."""
     from bot.config import fmt_limit
 
     s = get_settings()
     p = s.plans[plan]
     accs, vids = fmt_limit(p["accounts"]), fmt_limit(p["videos"])
-    return t("plan_card", lang, plan=s.plan_label(plan), accounts=accs, videos=vids,
-             m_rub=p["month"]["rub"], m_star=p["month"]["stars"],
-             f_rub=p["forever"]["rub"], f_star=p["forever"]["stars"])
+    pct = applied.percent if applied else 0
+    card = t("plan_card", lang, plan=s.plan_label(plan), accounts=accs, videos=vids,
+             m_rub=promo.discounted(p["month"]["rub"], pct),
+             m_star=promo.discounted(p["month"]["stars"], pct),
+             f_rub=promo.discounted(p["forever"]["rub"], pct),
+             f_star=promo.discounted(p["forever"]["stars"], pct))
+    if applied is None:
+        return card
+    head = t("promo_line", lang, code=applied.code, percent=applied.percent)
+    return f"{head}\n\n{card}"
 
 
 async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, str, InlineKeyboardMarkup]:
@@ -166,22 +174,33 @@ async def _build(screen: str, user_id: int, lang: str, bot: Bot) -> tuple[str, s
         pl = screen[len("plan_"):]
         if pl not in settings.plans:
             pl = "starter"
+        async with get_session() as session:
+            applied = await promo.applied_for(session, user_id, pl)
+        pct = applied.percent if applied else 0
+        prices = settings.plans[pl]
         rows = [
             [InlineKeyboardButton(
-                text=t("btn_buy_month", lang, rub=settings.plans[pl]["month"]["rub"]),
+                text=t("btn_buy_month", lang, rub=promo.discounted(prices["month"]["rub"], pct)),
                 callback_data=f"buy:{pl}:month:rub")],
             [InlineKeyboardButton(
-                text=t("btn_buy_month_star", lang, stars=settings.plans[pl]["month"]["stars"]),
+                text=t("btn_buy_month_star", lang,
+                       stars=promo.discounted(prices["month"]["stars"], pct)),
                 callback_data=f"buy:{pl}:month:stars")],
             [InlineKeyboardButton(
-                text=t("btn_buy_forever", lang, rub=settings.plans[pl]["forever"]["rub"]),
+                text=t("btn_buy_forever", lang,
+                       rub=promo.discounted(prices["forever"]["rub"], pct)),
                 callback_data=f"buy:{pl}:forever:rub")],
             [InlineKeyboardButton(
-                text=t("btn_buy_forever_star", lang, stars=settings.plans[pl]["forever"]["stars"]),
+                text=t("btn_buy_forever_star", lang,
+                       stars=promo.discounted(prices["forever"]["stars"], pct)),
                 callback_data=f"buy:{pl}:forever:stars")],
+            [InlineKeyboardButton(
+                text=t("btn_promo", lang) if applied is None
+                else t("btn_promo_off", lang, code=applied.code, percent=applied.percent),
+                callback_data=f"promo:ask:{pl}" if applied is None else f"promo:clear:{pl}")],
             _back("buy", lang),
         ]
-        return "tariffs", _plan_card(pl, lang), InlineKeyboardMarkup(inline_keyboard=rows)
+        return "tariffs", _plan_card(pl, lang, applied), InlineKeyboardMarkup(inline_keyboard=rows)
 
     if screen == "mysub":
         status = await _status_line(user_id, lang)

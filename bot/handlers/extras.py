@@ -24,7 +24,7 @@ from bot.db.models import PAY_PAID, Connection, Payment, PublishAccount, User
 from bot.db.session import get_session
 from bot.handlers.start import ensure_user
 from bot.i18n import t, user_lang
-from bot.services import platega
+from bot.services import platega, promo
 from bot.services.payments_service import grant_in_session
 from bot.ui import cleanup_ask, remember_prompt, send_with_icon
 from bot.services.subscription import grant_referral_bonus, grant_subscription, status_text
@@ -147,17 +147,23 @@ async def buy_plan(callback: CallbackQuery, bot: Bot) -> None:
     days = s.plan_days(period)
     label = s.plan_label(plan)
     period_txt = t("inv_period_forever", lang) if period == "forever" else t("inv_period_month", lang)
+    async with get_session() as session:
+        applied = await promo.applied_for(session, callback.from_user.id, plan)
+    percent = applied.percent if applied else 0
+    promo_code = applied.code if applied else None
 
     if currency == "stars":
+        stars = promo.discounted(s.plan_price(plan, period, "stars"), percent)
         async with get_session() as session:
             payment = Payment(
                 user_id=callback.from_user.id,
                 days=days,
                 plan=plan,
-                amount=s.plan_price(plan, period, "stars"),
+                amount=stars,
                 currency="XTR",
                 provider="stars",
                 provider_payment_id=None,
+                promo_code=promo_code,
             )
             session.add(payment)
         await bot.send_invoice(
@@ -167,8 +173,7 @@ async def buy_plan(callback: CallbackQuery, bot: Bot) -> None:
             payload=f"stars:{payment.id}",
             provider_token="",
             currency="XTR",
-            prices=[LabeledPrice(label=t("inv_label", lang, plan=label),
-                                 amount=s.plan_price(plan, period, "stars"))],
+            prices=[LabeledPrice(label=t("inv_label", lang, plan=label), amount=stars)],
         )
         await callback.answer()
         return
@@ -177,7 +182,7 @@ async def buy_plan(callback: CallbackQuery, bot: Bot) -> None:
         await callback.message.answer(t("rub_soon", lang))
         await callback.answer()
         return
-    amount = s.plan_price(plan, period, "rub")
+    amount = promo.discounted(s.plan_price(plan, period, "rub"), percent)
     me = await bot.get_me()
     try:
         tx_id, redirect = await platega.create_payment(
@@ -196,6 +201,7 @@ async def buy_plan(callback: CallbackQuery, bot: Bot) -> None:
         session.add(Payment(
             user_id=callback.from_user.id, days=days, plan=plan, amount=amount,
             currency="RUB", provider="platega", provider_payment_id=tx_id,
+            promo_code=promo_code,
         ))
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t("btn_pay_now", lang, amount=amount), url=redirect)]
@@ -235,7 +241,7 @@ async def _activate_stars(
                     paid_at=func.now(),
                     granted_at=func.now(),
                 )
-                .returning(Payment.days, Payment.plan)
+                .returning(Payment.days, Payment.plan, Payment.promo_code)
             )
             row = res.first()
         except IntegrityError:
@@ -243,6 +249,7 @@ async def _activate_stars(
         if row is None:
             return None
         until = await grant_in_session(session, telegram_id, row.days, row.plan)
+        await promo.redeem_in_session(session, row.promo_code, telegram_id, payment_id)
     return row.days, row.plan, until
 
 

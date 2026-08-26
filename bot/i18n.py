@@ -155,6 +155,55 @@ T: dict[str, dict[str, str]] = {
         "ru": "⚠️ Не удалось создать счёт. Попробуй позже или напиши в «💬 Поддержка».",
         "en": "⚠️ Couldn't create the invoice. Try later or contact «💬 Support».",
     },
+    "promo_prompt": {
+        "ru": "🎟 Пришли промокод одним сообщением — применю скидку к этому тарифу.",
+        "en": "🎟 Send the promo code in one message — I'll apply the discount to this plan.",
+    },
+    "promo_applied": {
+        "ru": (
+            "🎟 Промокод <b>{code}</b> применён: скидка <b>{percent}%</b>.\n"
+            "Цены на кнопках уже с ней — способ оплаты любой."
+        ),
+        "en": (
+            "🎟 Promo code <b>{code}</b> applied: <b>{percent}%</b> off.\n"
+            "The prices on the buttons already include it — pay any way you like."
+        ),
+    },
+    "promo_line": {
+        "ru": "🎟 <b>{code}</b> — скидка {percent}%, цены ниже уже с ней",
+        "en": "🎟 <b>{code}</b> — {percent}% off, the prices below already include it",
+    },
+    "promo_cleared": {"ru": "Промокод снят", "en": "Promo code removed"},
+    "promo_bad_not_found": {
+        "ru": "⚠️ Такого промокода нет — проверь написание.",
+        "en": "⚠️ No such promo code — check the spelling.",
+    },
+    "promo_bad_inactive": {
+        "ru": "⚠️ Этот промокод отключён.",
+        "en": "⚠️ This promo code is disabled.",
+    },
+    "promo_bad_expired": {
+        "ru": "⏳ Срок действия промокода истёк.",
+        "en": "⏳ This promo code has expired.",
+    },
+    "promo_bad_exhausted": {
+        "ru": "⚠️ Промокод исчерпан — все использования уже разобрали.",
+        "en": "⚠️ This promo code is used up — no activations left.",
+    },
+    "promo_bad_wrong_plan": {
+        "ru": "⚠️ Этот промокод действует на другой тариф.",
+        "en": "⚠️ This promo code works for a different plan.",
+    },
+    "promo_bad_already_used": {
+        "ru": "⚠️ Ты уже использовал этот промокод.",
+        "en": "⚠️ You have already used this promo code.",
+    },
+    "btn_promo": {"ru": "🎟 Промокод", "en": "🎟 Promo code"},
+    "btn_promo_off": {
+        "ru": "🎟 {code} −{percent}% · убрать",
+        "en": "🎟 {code} −{percent}% · remove",
+    },
+    "btn_promo_back": {"ru": "⬅️ К тарифу", "en": "⬅️ Back to the plan"},
     "status_admin": {"ru": "♾ Безлимитный доступ (админ)", "en": "♾ Unlimited access (admin)"},
     "expiry_soon": {
         "ru": (

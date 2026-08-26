@@ -402,6 +402,8 @@ async def cmd_help(message: Message) -> None:
         "новым подключениям, привязанные аккаунты работают)\n"
         "<b>/delproject</b> &lt;id&gt; — удалить проект (только если к нему 0 аккаунтов)\n"
         "<b>/grant</b> &lt;user_id&gt; &lt;дней&gt; — продлить подписку пользователю\n"
+        "<b>/promo</b> — промокоды: список и справка; "
+        "<code>/promo new 30 pro uses=100 days=7</code> — создать код на −30%\n"
         "<b>/forcepublish</b> &lt;connection_id&gt; — опубликовать последнее видео "
         "источника сейчас, минуя защиту от бэклога (тест/демо)\n"
         "<b>/backfill</b> &lt;connection_id&gt; [N] — залить архив источника "

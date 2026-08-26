@@ -11,7 +11,7 @@ from bot.config import get_settings
 from bot.db.models import PAY_PAID, PAY_PENDING, Payment, User
 from bot.db.session import get_session
 from bot.i18n import t, user_lang
-from bot.services import platega
+from bot.services import platega, promo
 
 logger = logging.getLogger("postiqbot.payments")
 
@@ -62,12 +62,13 @@ async def _claim_and_grant(payment_id: int) -> tuple[int, int, datetime] | None:
                 paid_at=func.coalesce(Payment.paid_at, func.now()),
                 granted_at=func.now(),
             )
-            .returning(Payment.user_id, Payment.days, Payment.plan)
+            .returning(Payment.user_id, Payment.days, Payment.plan, Payment.promo_code)
         )
         row = res.first()
         if row is None:
             return None
         until = await grant_in_session(session, row.user_id, row.days, row.plan)
+        await promo.redeem_in_session(session, row.promo_code, row.user_id, payment_id)
     return row.user_id, row.days, until
 
 
@@ -82,12 +83,13 @@ async def _grant_lost(payment_id: int) -> tuple[int, int, datetime] | None:
                 Payment.granted_at.is_(None),
             )
             .values(granted_at=func.now())
-            .returning(Payment.user_id, Payment.days, Payment.plan)
+            .returning(Payment.user_id, Payment.days, Payment.plan, Payment.promo_code)
         )
         row = res.first()
         if row is None:
             return None
         until = await grant_in_session(session, row.user_id, row.days, row.plan)
+        await promo.redeem_in_session(session, row.promo_code, row.user_id, payment_id)
     return row.user_id, row.days, until
 
 

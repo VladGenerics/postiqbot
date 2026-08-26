@@ -18,6 +18,7 @@ from bot.handlers import (
     extras,
     menu,
     navigation,
+    promo,
     sources,
     start,
     tiktok_confirm,
@@ -87,6 +88,7 @@ def build_dispatcher() -> Dispatcher:
     dp.include_router(tiktok_confirm.router)
     dp.include_router(tiktok_settings.router)
     dp.include_router(extras.router)
+    dp.include_router(promo.router)
     dp.include_router(admin.router)
     dp.errors.register(_global_error_handler)
     return dp

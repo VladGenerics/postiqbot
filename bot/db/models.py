@@ -61,6 +61,7 @@ class User(Base):
     channel_verified: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("false")
     )
+    promo_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     publish_accounts: Mapped[list["PublishAccount"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
@@ -355,6 +356,7 @@ class Payment(Base):
     granted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    promo_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class SupportMessage(Base):
@@ -382,3 +384,46 @@ class SupportThread(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class PromoCode(Base):
+    """Промокод на скидку."""
+
+    __tablename__ = "promo_codes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True)
+    percent: Mapped[int] = mapped_column(Integer)
+    plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    max_uses: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    used_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=text("true")
+    )
+    created_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class PromoRedemption(Base):
+    """Факт списания промокода: один код — один раз на пользователя."""
+
+    __tablename__ = "promo_redemptions"
+    __table_args__ = (
+        UniqueConstraint("promo_id", "user_id", name="uq_promo_user"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    promo_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("promo_codes.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    payment_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
